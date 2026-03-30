@@ -2,239 +2,427 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>设备管理系统 / Equipment Management System</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Car 焊接管理看板 V37</title>
 <style>
-body{
-    font-family:Arial;
-    margin:20px;
-}
-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-bottom:20px;
-}
-th,td{
-    border:1px solid #ccc;
-    padding:8px;
-    text-align:center;
-}
-input,select{
-    width:100%;
-}
-button{
-    padding:6px 12px;
-}
+body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
+.header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px;cursor:text}
+.container{display:flex;gap:20px;flex-wrap:wrap}
+.panel{flex:1;background:#1e293b;border-radius:12px;padding:20px;resize:both;overflow:auto;min-width:300px;min-height:300px}
+h2{text-align:center;color:#38bdf8;cursor:text}
+table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
+th,td{border:1px solid #334155;padding:8px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th{background:#334155;cursor:default}
+input,select{width:100%;background:#0f172a;color:white;border:1px solid #475569;padding:4px}
+.normal{background:#16a34a}
+.warning{background:#eab308;color:black}
+.danger{background:#dc2626}
+.deleteBtn{opacity:0;transition:opacity 0.3s;font-size:10px;padding:2px 6px;background:#475569;border:none;border-radius:4px;cursor:pointer}
+tr:hover .deleteBtn{opacity:0.8}
+button{margin-top:10px;padding:6px 12px;background:#38bdf8;border:none;border-radius:8px;cursor:pointer}
+
+/* 登录模块 */
+#loginPanel{position:fixed;top:20px;right:20px;width:50px;height:50px;background:#38bdf8;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:all 0.3s;z-index:1000}
+#loginPanel.expanded{width:250px;height:auto;border-radius:12px;padding:10px;flex-direction:column;align-items:flex-start}
+#loginIcon{font-weight:bold;color:#0f172a;font-size:24px}
+#loginContent{display:none;width:100%;flex-direction:column;gap:5px}
+#loginPanel.expanded #loginContent{display:flex}
 </style>
 </head>
 <body>
 
-<h2>维护表 / Maintenance</h2>
-<table id="maintainTable">
-<thead>
-<tr>
-<th>项目</th>
-<th>工序</th>
-<th>责任人</th>
-<th>周期</th>
-<th>单位</th>
-<th>上次时间</th>
-<th>下次时间</th>
-<th>状态</th>
-<th>备注</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
+<div id="loginPanel">
+  <div id="loginIcon">👤</div>
+  <div id="loginContent" onclick="event.stopPropagation()">
+    <label>用户名 / Username: <input type="text" id="username"></label>
+    <label>密码 / Password: <input type="password" id="password"></label>
+    <button onclick="login()">登录 / Login</button>
+    <span id="loginStatus" style="margin-left:5px"></span>
+    <button onclick="changePassword()" id="changePassBtn" disabled>修改账户 / Change Account</button>
+    <button onclick="exportData()" id="exportBtn" disabled>导出数据 / Export Data</button>
+    <input type="file" id="importFile" style="display:none" onchange="importData(event)">
+    <button onclick="document.getElementById('importFile').click()" id="importBtn" disabled>导入数据 / Import Data</button>
+  </div>
+</div>
 
-<h2>检查表 / Inspection</h2>
-<table id="inspectTable">
-<thead>
-<tr>
-<th>项目</th>
-<th>工序</th>
-<th>责任人</th>
-<th>周期</th>
-<th>单位</th>
-<th>上次时间</th>
-<th>下次时间</th>
-<th>状态</th>
-<th>备注</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
+<div class="header" contenteditable="false">Smart Car 焊接管理看板 / Welding Dashboard</div>
+<div class="container">
+  <div class="panel">
+    <h2 contenteditable="false">焊接保养 / Maintenance</h2>
+    <div class="table-wrapper">
+      <table id="maintainTable">
+        <thead>
+          <tr>
+            <th>项目 / Item</th>
+            <th>工序 / Process</th>
+            <th>责任人 / Owner</th>
+            <th>周期值 / Cycle</th>
+            <th>周期单位 / Unit</th>
+            <th>上次时间 / Last Time</th>
+            <th>下次时间 / Next Time</th>
+            <th>备注 / Remark</th>
+            <th>状态 / Status</th>
+            <th>操作 / Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button onclick="addRow('maintainTable')" disabled>新增一行 / Add Row</button>
+  </div>
+  <div class="panel">
+    <h2 contenteditable="false">焊接点检 / Inspection</h2>
+    <div class="table-wrapper">
+      <table id="inspectTable">
+        <thead>
+          <tr>
+            <th>项目 / Item</th>
+            <th>工序 / Process</th>
+            <th>责任人 / Owner</th>
+            <th>周期值 / Cycle</th>
+            <th>周期单位 / Unit</th>
+            <th>上次时间 / Last Time</th>
+            <th>下次时间 / Next Time</th>
+            <th>备注 / Remark</th>
+            <th>状态 / Status</th>
+            <th>操作 / Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button onclick="addRow('inspectTable')" disabled>新增一行 / Add Row</button>
+  </div>
+</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+let loggedIn=false;
+let currentRole=null;
 
-// ---------- Google Sheet 配置 ----------
-const sheetID = "1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY";
+if(!localStorage.getItem('dashboardUsers')){
+  localStorage.setItem('dashboardUsers', JSON.stringify([
+    {username:'admin', password:'123', role:'admin'},
+    {username:'guest', password:'guest', role:'readonly'}
+  ]));
+}
+
+document.getElementById('loginPanel').addEventListener('click', function(){
+  this.classList.toggle('expanded');
+});
+document.getElementById('loginContent').addEventListener('click', function(event){
+  event.stopPropagation();
+});
+
+function login(){
+  const user=document.getElementById('username').value.trim();
+  const pass=document.getElementById('password').value.trim();
+  const users=JSON.parse(localStorage.getItem('dashboardUsers'));
+  const acc=users.find(u=>u.username===user && u.password===pass);
+  if(acc){
+    loggedIn=true;
+    currentRole=acc.role;
+    document.getElementById('loginStatus').textContent='已登录 / Logged in ('+currentRole+')';
+    applyPermissions();
+    loadData(false);
+    fetchSheetData(); // 登录后加载 Google Sheet
+    document.getElementById('loginPanel').classList.add('expanded');
+  } else alert('用户名或密码错误 / Invalid username or password');
+}
+
+function applyPermissions(){
+  const isAdmin=currentRole==='admin';
+  document.querySelectorAll('.header,h2').forEach(el=>el.contentEditable=isAdmin);
+  document.querySelectorAll('td').forEach(td=>{
+    if(currentRole==='readonly'){
+      if([3,4,5,6].includes(td.cellIndex)){
+        td.contentEditable=false;
+        if(td.querySelector('input')) td.querySelector('input').disabled=true;
+        if(td.querySelector('select')) td.querySelector('select').disabled=true;
+      } else if(td.cellIndex===9 && td.querySelector('button')){
+        td.querySelector('button').disabled=true;
+      } else {td.contentEditable=false;}
+    } else {
+      td.contentEditable=true;
+      if(td.querySelector('input')) td.querySelector('input').disabled=false;
+      if(td.querySelector('select')) td.querySelector('select').disabled=false;
+      if(td.cellIndex===9 && td.querySelector('button')){
+        td.querySelector('button').disabled=false;
+      }
+    }
+  });
+  document.querySelectorAll('#changePassBtn,#exportBtn,#importBtn').forEach(btn=>btn.disabled=!isAdmin);
+  document.querySelectorAll('button').forEach(btn=>{
+    if(btn.onclick && btn.textContent.includes('新增')) btn.disabled=!isAdmin;
+  });
+}
+
+function saveData(){
+  if(!loggedIn || currentRole==='readonly') return;
+  localStorage.setItem('maintainData', document.getElementById('maintainTable').outerHTML);
+  localStorage.setItem('inspectData', document.getElementById('inspectTable').outerHTML);
+}
+
+function loadData(reset=true){
+  if(reset){
+    const maintain=localStorage.getItem('maintainData');
+    const inspect=localStorage.getItem('inspectData');
+    if(maintain) document.getElementById('maintainTable').outerHTML=maintain;
+    if(inspect) document.getElementById('inspectTable').outerHTML=inspect;
+  }
+  addRowListeners();
+}
+
+function addRowListeners(){
+  document.querySelectorAll('td[contenteditable]').forEach(td=>td.addEventListener('input',saveData));
+  document.querySelectorAll('input, select').forEach(el=>{
+    el.addEventListener('change',()=>{
+      calculateNext(el);
+      saveData();
+    });
+  });
+}
+
+function calculateNext(el){
+  if(!loggedIn || currentRole==='readonly') return;
+  const row=el.parentElement.parentElement;
+  const cycle=row.cells[3].querySelector('input')?.value;
+  const unit=row.cells[4].querySelector('select')?.value;
+  const last=row.cells[5].querySelector('input')?.value;
+  if(!last||!cycle) return;
+  let d=new Date(last);
+  if(unit.includes('月')){d.setMonth(d.getMonth()+parseInt(cycle));}
+  else if(unit.includes('周')){d.setDate(d.getDate()+parseInt(cycle)*7);}
+  else{d.setDate(d.getDate()+parseInt(cycle));}
+  row.cells[6].querySelector('input').value=d.toISOString().split('T')[0];
+  updateStatus(row);
+}
+
+function updateStatus(row){
+  const next=row.cells[6].querySelector('input')?.value;
+  const status=row.cells[8];
+  if(!next) return;
+  const today=new Date();
+  const nextDate=new Date(next);
+  const diff=(nextDate-today)/(1000*60*60*24);
+  status.className='status';
+  if(diff<0){status.textContent='超期 / Overdue';status.classList.add('danger');}
+  else if(diff<=7){status.textContent='即将到期 / Expiring';status.classList.add('warning');}
+  else{status.textContent='正常 / Normal';status.classList.add('normal');}
+}
+
+function addRow(tableId){
+  if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
+  const table=document.getElementById(tableId);
+  const row=table.insertRow();
+  row.innerHTML=`<td contenteditable='true'>新项目 / New Item</td><td contenteditable='true'>工序 / Process</td><td contenteditable='true'>责任人 / Owner</td>
+  <td><input type='number' value='1'></td>
+  <td>
+    <select>
+      <option>月 / Month</option>
+      <option>周 / Week</option>
+      <option>天 / Day</option>
+    </select>
+  </td>
+  <td><input type='date'></td>
+  <td><input type='date'></td>
+  <td contenteditable='true'>备注 / Remark</td>
+  <td class='status'>正常 / Normal</td>
+  <td><button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button></td>`;
+  addRowListeners();
+  saveData();
+}
+
+function deleteRow(btn){
+  if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
+  btn.parentElement.parentElement.remove();
+  saveData();
+}
+
+function changePassword(){
+  if(!loggedIn || currentRole!=='admin') return;
+  const newUser=prompt('请输入新用户名 / Enter new username', 'admin');
+  const newPass=prompt('请输入新密码 / Enter new password', '123');
+  if(newUser && newPass){
+    let users=JSON.parse(localStorage.getItem('dashboardUsers'));
+    let acc=users.find(u=>u.username==='admin');
+    acc.username=newUser; acc.password=newPass;
+    localStorage.setItem('dashboardUsers', JSON.stringify(users));
+    alert('账户修改成功 / Account updated successfully');
+  }
+}
+
+function exportData(){
+  if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
+  const wb=XLSX.utils.book_new();
+  const maintain=Array.from(document.querySelectorAll('#maintainTable tr')).map(tr=>{
+    return Array.from(tr.cells).map(td=>{
+      if(td.querySelector('input')) return td.querySelector('input').value;
+      if(td.querySelector('select')) return td.querySelector('select').value;
+      return td.textContent;
+    });
+  });
+  const inspect=Array.from(document.querySelectorAll('#inspectTable tr')).map(tr=>{
+    return Array.from(tr.cells).map(td=>{
+      if(td.querySelector('input')) return td.querySelector('input').value;
+      if(td.querySelector('select')) return td.querySelector('select').value;
+      return td.textContent;
+    });
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(maintain),'Maintenance');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(inspect),'Inspection');
+  XLSX.writeFile(wb,'dashboard.xlsx');
+}
+
+function importData(event){
+  if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
+  const file=event.target.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const data=new Uint8Array(e.target.result);
+    const wb=XLSX.read(data,{type:'array'});
+    ['Maintenance','Inspection'].forEach(sheetName=>{
+      const ws=wb.Sheets[sheetName];
+      if(ws){
+        const aoa=XLSX.utils.sheet_to_json(ws,{header:1});
+        const tableId = sheetName==='Maintenance'?'maintainTable':'inspectTable';
+        const table=document.getElementById(tableId);
+        const thead=table.querySelector('thead').outerHTML;
+        table.innerHTML=thead;
+        aoa.slice(1).forEach((row,i)=>{
+          const tr=table.insertRow();
+          row.forEach((cell,j)=>{
+            const td=tr.insertCell();
+            if(j===3){td.innerHTML=`<input type='number' value='${cell || ''}'>`;}
+            else if(j===4){
+              td.innerHTML=`<select>
+                <option>月 / Month</option>
+                <option>周 / Week</option>
+                <option>天 / Day</option>
+              </select>`;
+              td.querySelector('select').value=cell||'月 / Month';
+            }
+            else if(j===5||j===6){td.innerHTML=`<input type='date' value='${cell || ''}'>`;}
+            else if(j===9){td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button>`;}
+            else{td.textContent=cell||'';}
+          });
+          calculateNext(tr.cells[5].querySelector('input'));
+        });
+      }
+    });
+    addRowListeners();
+    saveData();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ---------- Google Sheet 集成 ----------
+
+// ---------- Google Sheet 集成（双 Sheet 完整版） ----------
+const sheetID = "1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY"; // 替换为你的 Google Sheet ID
 
 const sheetConfigs = [
-    { name: "Maintenance", tableId: "maintainTable" },
-    { name: "Inspection", tableId: "inspectTable" }
+  { name: "Maintenance", tableId: "maintainTable" },
+  { name: "Inspection", tableId: "inspectTable" }
 ];
 
-// ---------- 日期处理 ----------
 function formatDateForInput(value){
-    if(!value) return '';
+  if(!value) return '';
 
-    if(typeof value === 'string' && value.includes('T')){
-        return value.split('T')[0];
-    }
+  if(typeof value==='string' && value.includes('T')){
+    return value.split('T')[0];
+  }
 
-    if(typeof value === 'number'){
-        const date = new Date((value - 25569) * 86400 * 1000);
-        const y = date.getFullYear();
-        const m = ('0'+(date.getMonth()+1)).slice(-2);
-        const d = ('0'+date.getDate()).slice(-2);
-        return `${y}-${m}-${d}`;
-    }
+  if(typeof value==='number'){
+    const date = new Date((value - 25569) * 86400 * 1000);
+    const y = date.getFullYear();
+    const m = ('0'+(date.getMonth()+1)).slice(-2);
+    const d = ('0'+date.getDate()).slice(-2);
+    return `${y}-${m}-${d}`;
+  }
 
-    return value;
+  return value;
 }
 
-// ---------- 状态计算 ----------
-function calculateNext(input){
-    const row = input.closest('tr');
-
-    const cycle = parseInt(row.cells[3].querySelector('input').value)||0;
-    const unit = row.cells[4].querySelector('select').value;
-    const lastDate = new Date(row.cells[5].querySelector('input').value);
-
-    if(!lastDate.getTime()) return;
-
-    let next = new Date(lastDate);
-
-    if(unit.includes('月')) next.setMonth(next.getMonth()+cycle);
-    if(unit.includes('周')) next.setDate(next.getDate()+cycle*7);
-    if(unit.includes('天')) next.setDate(next.getDate()+cycle);
-
-    row.cells[6].querySelector('input').value = next.toISOString().split('T')[0];
-
-    const today = new Date();
-    const diff = (next - today)/(1000*3600*24);
-
-    let status='正常';
-
-    if(diff<0) status='超期';
-    else if(diff<3) status='即将到期';
-
-    row.cells[7].textContent=status;
-}
-
-// ---------- 行监听 ----------
-function addRowListeners(){
-    document.querySelectorAll('tbody tr').forEach(row=>{
-
-        const cycleInput=row.cells[3]?.querySelector('input');
-        const unitSelect=row.cells[4]?.querySelector('select');
-        const lastDate=row.cells[5]?.querySelector('input');
-
-        if(cycleInput) cycleInput.oninput=()=>calculateNext(cycleInput);
-        if(unitSelect) unitSelect.onchange=()=>calculateNext(unitSelect);
-        if(lastDate) lastDate.onchange=()=>calculateNext(lastDate);
-
-    });
-}
-
-// ---------- 删除 ----------
-function deleteRow(btn){
-    btn.closest('tr').remove();
-}
-
-// ---------- 渲染表格 ----------
-function renderSheetData(rows, tableId){
-
-    const table=document.getElementById(tableId).tBodies[0];
-    table.innerHTML='';
-
-    rows.forEach(rowData=>{
-
-        const tr=table.insertRow();
-
-        for(let j=0;j<10;j++){
-
-            const td=tr.insertCell();
-            const cell=rowData[j]||'';
-
-            if(j===3){
-                td.innerHTML=`<input type='number' value='${cell}'>`;
-            }
-
-            else if(j===4){
-                td.innerHTML=`
-                <select>
-                    <option>月 / Month</option>
-                    <option>周 / Week</option>
-                    <option>天 / Day</option>
-                </select>`;
-                td.querySelector('select').value=cell||'月 / Month';
-            }
-
-            else if(j===5 || j===6){
-                td.innerHTML=`<input type='date' value='${formatDateForInput(cell)}'>`;
-            }
-
-            else if(j===9){
-                td.innerHTML=`<button onclick='deleteRow(this)'>删除 / Delete</button>`;
-            }
-
-            else{
-                td.textContent=cell;
-            }
-        }
-
-        addRowListeners();
-
-        if(tr.cells[5]?.querySelector('input')){
-            calculateNext(tr.cells[5].querySelector('input'));
-        }
-
-    });
-}
-
-// ---------- 单个 Sheet ----------
 async function fetchSingleSheet(sheetName, tableId){
+  try{
+    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
 
-    try{
+    const res = await fetch(url);
+    const text = await res.text();
 
-        const url=`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+    const jsonText = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1];
+    const json = JSON.parse(jsonText);
 
-        const res=await fetch(url);
-        const text=await res.text();
+    const rows = json.table.rows.map(r =>
+      r.c.map(cell => cell ? cell.v : "")
+    );
 
-        const jsonText=text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1];
-        const json=JSON.parse(jsonText);
+    renderSheetData(rows, tableId);
 
-        const rows=json.table.rows.map(r=>
-            r.c.map(cell=>cell?cell.v:'')
-        );
-
-        renderSheetData(rows,tableId);
-
-    }catch(err){
-        console.error(`读取 ${sheetName} 出错:`,err);
-    }
-
+  }catch(err){
+    console.error(`读取 ${sheetName} 出错:`, err);
+  }
 }
 
-// ---------- 全部读取 ----------
 async function fetchSheetData(){
-
-    for(const config of sheetConfigs){
-        await fetchSingleSheet(config.name, config.tableId);
-    }
-
+  for(const config of sheetConfigs){
+    await fetchSingleSheet(config.name, config.tableId);
+  }
 }
 
-// ---------- 页面加载 ----------
-fetchSheetData();
+function renderSheetData(rows, tableId){
+  const table = document.getElementById(tableId).tBodies[0];
+  if(!table) return;
+
+  table.innerHTML = '';
+
+  rows.forEach(rowData=>{
+    const tr = table.insertRow();
+
+    for(let j=0;j<10;j++){
+      const td = tr.insertCell();
+      const cell = rowData[j] || '';
+
+      if(j===3){
+        td.innerHTML=`<input type='number' value='${cell}'>`;
+      }
+
+      else if(j===4){
+        td.innerHTML=`<select>
+          <option>月 / Month</option>
+          <option>周 / Week</option>
+          <option>天 / Day</option>
+        </select>`;
+        td.querySelector('select').value = cell || '月 / Month';
+      }
+
+      else if(j===5 || j===6){
+        td.innerHTML=`<input type='date' value='${formatDateForInput(cell)}'>`;
+      }
+
+      else if(j===9){
+        td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button>`;
+      }
+
+      else{
+        td.textContent = cell;
+      }
+    }
+
+    addRowListeners();
+
+    if(tr.cells[5]?.querySelector('input')){
+      calculateNext(tr.cells[5].querySelector('input'));
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  loadData(false);
+});
+
 
 </script>
-
 </body>
-</html>
+</html>     
