@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V37</title>
+<title>Smart Car 焊接管理看板 V37 - Online</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px;cursor:text}
@@ -254,20 +254,16 @@ function changePassword(){
 function exportData(){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
   const wb=XLSX.utils.book_new();
-  const maintain=Array.from(document.querySelectorAll('#maintainTable tr')).map(tr=>{
-    return Array.from(tr.cells).map(td=>{
+  const maintain=Array.from(document.querySelectorAll('#maintainTable tr')).map(tr=>Array.from(tr.cells).map(td=>{
       if(td.querySelector('input')) return td.querySelector('input').value;
       if(td.querySelector('select')) return td.querySelector('select').value;
       return td.textContent;
-    });
-  });
-  const inspect=Array.from(document.querySelectorAll('#inspectTable tr')).map(tr=>{
-    return Array.from(tr.cells).map(td=>{
+  }));
+  const inspect=Array.from(document.querySelectorAll('#inspectTable tr')).map(tr=>Array.from(tr.cells).map(td=>{
       if(td.querySelector('input')) return td.querySelector('input').value;
       if(td.querySelector('select')) return td.querySelector('select').value;
       return td.textContent;
-    });
-  });
+  }));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(maintain),'Maintenance');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(inspect),'Inspection');
   XLSX.writeFile(wb,'dashboard.xlsx');
@@ -294,11 +290,7 @@ function importData(event){
             const td=tr.insertCell();
             if(j===3){td.innerHTML=`<input type='number' value='${cell || ''}'>`;}
             else if(j===4){
-              td.innerHTML=`<select>
-                <option>月 / Month</option>
-                <option>周 / Week</option>
-                <option>天 / Day</option>
-              </select>`;
+              td.innerHTML=`<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`;
               td.querySelector('select').value=cell||'月 / Month';
             }
             else if(j===5||j===6){td.innerHTML=`<input type='date' value='${cell || ''}'>`;}
@@ -315,32 +307,47 @@ function importData(event){
   reader.readAsArrayBuffer(file);
 }
 
+// ---------------- Google Sheets 在线渲染 ----------------
+const sheetID_maintain="1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY";
+const sheetID_inspect="1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY";
+const sheetURL_maintain=`https://docs.google.com/spreadsheets/d/${sheetID_maintain}/gviz/tq?tqx=out:json`;
+const sheetURL_inspect=`https://docs.google.com/spreadsheets/d/${sheetID_inspect}/gviz/tq?tqx=out:json`;
 
-
-const sheetID = "1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY"; // 替换为你的 Google Sheets ID
-const sheetURL = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json`;
-
-async function loadSheetData() {
-    const res = await fetch(sheetURL);
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows.map(r => r.c.map(cell => cell ? cell.v : ""));
-    console.log(rows);
+async function loadSheetData(sheetURL){
+    const res=await fetch(sheetURL);
+    const text=await res.text();
+    const json=JSON.parse(text.substring(47).slice(0,-2));
+    const rows=json.table.rows.map(r=>r.c.map(cell=>cell?cell.v:""));
     return rows;
 }
 
-// 测试调用（或者用来渲染表格）
-loadSheetData().then(data => {
-    console.log("Google Sheets 数据：", data);
-    // 这里可以直接调用渲染函数，把 data 填到表格里
+function renderTableFromSheet(data, tableId){
+    const table=document.getElementById(tableId);
+    const tbody=table.querySelector('tbody');
+    tbody.innerHTML='';
+    data.forEach(row=>{
+        const tr=document.createElement('tr');
+        row.forEach((cell,j)=>{
+            const td=document.createElement('td');
+            if(j===3){td.innerHTML=`<input type='number' value='${cell||''}'>`;}
+            else if(j===4){td.innerHTML=`<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; td.querySelector('select').value=cell||'月 / Month';}
+            else if(j===5||j===6){td.innerHTML=`<input type='date' value='${cell||''}'>`;}
+            else if(j===9){td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button>`;}
+            else{td.textContent=cell||'';}
+            tr.appendChild(td);
+        });
+        calculateNext(tr.cells[5]?.querySelector('input'));
+        tbody.appendChild(tr);
+    });
+    addRowListeners();
+}
+
+// 自动加载 Google Sheets 数据到两个表格
+document.addEventListener('DOMContentLoaded',()=>{
+    loadSheetData(sheetURL_maintain).then(data=>renderTableFromSheet(data,'maintainTable'));
+    loadSheetData(sheetURL_inspect).then(data=>renderTableFromSheet(data,'inspectTable'));
+    loadData(false); // 保留 localStorage 逻辑
 });
-// ------------------- 结束 -------------------
-
-
-
-
-
-document.addEventListener('DOMContentLoaded',()=>{ loadData(false); });
 </script>
 </body>
 </html>
