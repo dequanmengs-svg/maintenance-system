@@ -329,6 +329,34 @@ const sheetConfigs = [
 function formatDateForInput(value){
   if(!value) return '';
 
+  // Google Sheet 日期格式 Date(2026,2,30)
+  if(typeof value === 'string' && value.startsWith('Date(')){
+    const parts = value.match(/\d+/g);
+    if(parts){
+      const y = parts[0];
+      const m = ('0' + (parseInt(parts[1]) + 1)).slice(-2);
+      const d = ('0' + parts[2]).slice(-2);
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  // ISO 日期格式
+  if(typeof value === 'string' && value.includes('T')){
+    return value.split('T')[0];
+  }
+
+  // Google 数字日期序列号
+  if(typeof value === 'number'){
+    const date = new Date((value - 25569) * 86400 * 1000);
+    const y = date.getFullYear();
+    const m = ('0' + (date.getMonth()+1)).slice(-2);
+    const d = ('0' + date.getDate()).slice(-2);
+    return `${y}-${m}-${d}`;
+  }
+
+  return value;
+}
+
   if(typeof value==='string' && value.includes('T')){
     return value.split('T')[0];
   }
