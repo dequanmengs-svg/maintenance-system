@@ -97,21 +97,23 @@ button{margin-top:10px;padding:6px 12px;background:#38bdf8;border:none;border-ra
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-// 用户登录与权限
 let loggedIn=false;
 let currentRole=null;
+
 if(!localStorage.getItem('dashboardUsers')){
   localStorage.setItem('dashboardUsers', JSON.stringify([
     {username:'admin', password:'123', role:'admin'},
     {username:'guest', password:'guest', role:'readonly'}
   ]));
 }
+
 document.getElementById('loginPanel').addEventListener('click', function(){
   this.classList.toggle('expanded');
 });
 document.getElementById('loginContent').addEventListener('click', function(event){
   event.stopPropagation();
 });
+
 function login(){
   const user=document.getElementById('username').value.trim();
   const pass=document.getElementById('password').value.trim();
@@ -122,11 +124,12 @@ function login(){
     currentRole=acc.role;
     document.getElementById('loginStatus').textContent='已登录 / Logged in ('+currentRole+')';
     applyPermissions();
-    loadLocalData();
-    fetchSheetData(); // 登录后自动加载 Google Sheet
+    loadData(false);
+    fetchSheetData(); // 登录后加载 Google Sheet
     document.getElementById('loginPanel').classList.add('expanded');
   } else alert('用户名或密码错误 / Invalid username or password');
 }
+
 function applyPermissions(){
   const isAdmin=currentRole==='admin';
   document.querySelectorAll('.header,h2').forEach(el=>el.contentEditable=isAdmin);
@@ -136,13 +139,16 @@ function applyPermissions(){
         td.contentEditable=false;
         if(td.querySelector('input')) td.querySelector('input').disabled=true;
         if(td.querySelector('select')) td.querySelector('select').disabled=true;
-      } else if(td.cellIndex===9 && td.querySelector('button')) td.querySelector('button').disabled=true;
-      else {td.contentEditable=false;}
+      } else if(td.cellIndex===9 && td.querySelector('button')){
+        td.querySelector('button').disabled=true;
+      } else {td.contentEditable=false;}
     } else {
       td.contentEditable=true;
       if(td.querySelector('input')) td.querySelector('input').disabled=false;
       if(td.querySelector('select')) td.querySelector('select').disabled=false;
-      if(td.cellIndex===9 && td.querySelector('button')) td.querySelector('button').disabled=false;
+      if(td.cellIndex===9 && td.querySelector('button')){
+        td.querySelector('button').disabled=false;
+      }
     }
   });
   document.querySelectorAll('#changePassBtn,#exportBtn,#importBtn').forEach(btn=>btn.disabled=!isAdmin);
@@ -151,27 +157,32 @@ function applyPermissions(){
   });
 }
 
-// 保存与加载本地数据
-function saveLocalData(){
+function saveData(){
   if(!loggedIn || currentRole==='readonly') return;
   localStorage.setItem('maintainData', document.getElementById('maintainTable').outerHTML);
   localStorage.setItem('inspectData', document.getElementById('inspectTable').outerHTML);
 }
-function loadLocalData(){
-  const maintain=localStorage.getItem('maintainData');
-  const inspect=localStorage.getItem('inspectData');
-  if(maintain) document.getElementById('maintainTable').outerHTML=maintain;
-  if(inspect) document.getElementById('inspectTable').outerHTML=inspect;
+
+function loadData(reset=true){
+  if(reset){
+    const maintain=localStorage.getItem('maintainData');
+    const inspect=localStorage.getItem('inspectData');
+    if(maintain) document.getElementById('maintainTable').outerHTML=maintain;
+    if(inspect) document.getElementById('inspectTable').outerHTML=inspect;
+  }
   addRowListeners();
 }
 
-// 行操作与状态计算
 function addRowListeners(){
-  document.querySelectorAll('td[contenteditable]').forEach(td=>td.addEventListener('input',saveLocalData));
+  document.querySelectorAll('td[contenteditable]').forEach(td=>td.addEventListener('input',saveData));
   document.querySelectorAll('input, select').forEach(el=>{
-    el.addEventListener('change',()=>{calculateNext(el);saveLocalData();});
+    el.addEventListener('change',()=>{
+      calculateNext(el);
+      saveData();
+    });
   });
 }
+
 function calculateNext(el){
   if(!loggedIn || currentRole==='readonly') return;
   const row=el.parentElement.parentElement;
@@ -186,6 +197,7 @@ function calculateNext(el){
   row.cells[6].querySelector('input').value=d.toISOString().split('T')[0];
   updateStatus(row);
 }
+
 function updateStatus(row){
   const next=row.cells[6].querySelector('input')?.value;
   const status=row.cells[8];
@@ -199,7 +211,6 @@ function updateStatus(row){
   else{status.textContent='正常 / Normal';status.classList.add('normal');}
 }
 
-// 新增/删除行
 function addRow(tableId){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
   const table=document.getElementById(tableId);
@@ -219,15 +230,15 @@ function addRow(tableId){
   <td class='status'>正常 / Normal</td>
   <td><button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button></td>`;
   addRowListeners();
-  saveLocalData();
+  saveData();
 }
+
 function deleteRow(btn){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
   btn.parentElement.parentElement.remove();
-  saveLocalData();
+  saveData();
 }
 
-// 账户修改与导入导出
 function changePassword(){
   if(!loggedIn || currentRole!=='admin') return;
   const newUser=prompt('请输入新用户名 / Enter new username', 'admin');
@@ -240,6 +251,7 @@ function changePassword(){
     alert('账户修改成功 / Account updated successfully');
   }
 }
+
 function exportData(){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
   const wb=XLSX.utils.book_new();
@@ -261,6 +273,7 @@ function exportData(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(inspect),'Inspection');
   XLSX.writeFile(wb,'dashboard.xlsx');
 }
+
 function importData(event){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
   const file=event.target.files[0];
@@ -298,14 +311,15 @@ function importData(event){
       }
     });
     addRowListeners();
-    saveLocalData();
+    saveData();
   };
   reader.readAsArrayBuffer(file);
 }
 
-// ---------- Google Sheets 集成 ----------
+// ---------- Google Sheet 集成 ----------
 const sheetID = "你的GoogleSheetID"; // 替换为你的ID
-const sheetURL = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json`;
+const sheetName = "Sheet1"; // 替换为你的工作表名称
+const sheetURL = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${sheetName}&tqx=out:json`;
 
 function formatDateForInput(value){
   if(!value) return '';
@@ -326,11 +340,13 @@ async function fetchSheetData(){
   try{
     const res = await fetch(sheetURL);
     const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0,-2));
+    const jsonText = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1];
+    const json = JSON.parse(jsonText);
     const rows = json.table.rows.map(r => r.c.map(cell => cell ? cell.v : ""));
-    // 渲染到表格
-    renderSheetData(rows,'maintainTable');
-  }catch(err){console.error(err);}
+    renderSheetData(rows,'maintainTable'); // 渲染到维护表格
+  }catch(err){
+    console.error("读取 Google Sheet 出错:", err);
+  }
 }
 
 function renderSheetData(rows, tableId){
@@ -361,8 +377,7 @@ function renderSheetData(rows, tableId){
   });
 }
 
-// 初始加载
-document.addEventListener('DOMContentLoaded',()=>{ loadLocalData(); });
+document.addEventListener('DOMContentLoaded',()=>{ loadData(false); });
 </script>
 </body>
 </html>
