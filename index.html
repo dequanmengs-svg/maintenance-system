@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V38</title>
+<title>Smart Car 焊接管理看板 V37</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px;cursor:text}
@@ -97,23 +97,21 @@ button{margin-top:10px;padding:6px 12px;background:#38bdf8;border:none;border-ra
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+// 用户登录与权限
 let loggedIn=false;
 let currentRole=null;
-
 if(!localStorage.getItem('dashboardUsers')){
   localStorage.setItem('dashboardUsers', JSON.stringify([
     {username:'admin', password:'123', role:'admin'},
     {username:'guest', password:'guest', role:'readonly'}
   ]));
 }
-
 document.getElementById('loginPanel').addEventListener('click', function(){
   this.classList.toggle('expanded');
 });
 document.getElementById('loginContent').addEventListener('click', function(event){
   event.stopPropagation();
 });
-
 function login(){
   const user=document.getElementById('username').value.trim();
   const pass=document.getElementById('password').value.trim();
@@ -124,102 +122,89 @@ function login(){
     currentRole=acc.role;
     document.getElementById('loginStatus').textContent='已登录 / Logged in ('+currentRole+')';
     applyPermissions();
-    loadAllData();
+    loadLocalData();
+    fetchSheetData(); // 登录后自动加载 Google Sheet
     document.getElementById('loginPanel').classList.add('expanded');
   } else alert('用户名或密码错误 / Invalid username or password');
 }
-
 function applyPermissions(){
   const isAdmin=currentRole==='admin';
   document.querySelectorAll('.header,h2').forEach(el=>el.contentEditable=isAdmin);
-  document.querySelectorAll('button').forEach(btn=>{
-    if(btn.textContent.includes('新增')) btn.disabled=!isAdmin;
+  document.querySelectorAll('td').forEach(td=>{
+    if(currentRole==='readonly'){
+      if([3,4,5,6].includes(td.cellIndex)){
+        td.contentEditable=false;
+        if(td.querySelector('input')) td.querySelector('input').disabled=true;
+        if(td.querySelector('select')) td.querySelector('select').disabled=true;
+      } else if(td.cellIndex===9 && td.querySelector('button')) td.querySelector('button').disabled=true;
+      else {td.contentEditable=false;}
+    } else {
+      td.contentEditable=true;
+      if(td.querySelector('input')) td.querySelector('input').disabled=false;
+      if(td.querySelector('select')) td.querySelector('select').disabled=false;
+      if(td.cellIndex===9 && td.querySelector('button')) td.querySelector('button').disabled=false;
+    }
   });
   document.querySelectorAll('#changePassBtn,#exportBtn,#importBtn').forEach(btn=>btn.disabled=!isAdmin);
+  document.querySelectorAll('button').forEach(btn=>{
+    if(btn.onclick && btn.textContent.includes('新增')) btn.disabled=!isAdmin;
+  });
 }
 
-function saveData(tableId){
+// 保存与加载本地数据
+function saveLocalData(){
   if(!loggedIn || currentRole==='readonly') return;
-  const table=document.getElementById(tableId);
-  const rows=Array.from(table.tBodies[0].rows).map(tr=>{
-    return Array.from(tr.cells).map((td,idx)=>{
-      if(idx===3||idx===5||idx===6){ // cycle / last / next
-        const inp=td.querySelector('input');
-        return inp?inp.value:'';
-      } else if(idx===4){ // unit
-        const sel=td.querySelector('select');
-        return sel?sel.value:'';
-      } else if(idx===9){ return ''; } // delete button
-      else return td.textContent;
-    });
-  });
-  localStorage.setItem(tableId+'Data', JSON.stringify(rows));
+  localStorage.setItem('maintainData', document.getElementById('maintainTable').outerHTML);
+  localStorage.setItem('inspectData', document.getElementById('inspectTable').outerHTML);
+}
+function loadLocalData(){
+  const maintain=localStorage.getItem('maintainData');
+  const inspect=localStorage.getItem('inspectData');
+  if(maintain) document.getElementById('maintainTable').outerHTML=maintain;
+  if(inspect) document.getElementById('inspectTable').outerHTML=inspect;
+  addRowListeners();
 }
 
-function loadTableData(tableId){
-  const table=document.getElementById(tableId);
-  const data=JSON.parse(localStorage.getItem(tableId+'Data')||'[]');
-  const tbody=table.tBodies[0];
-  tbody.innerHTML='';
-  data.forEach(rowData=>{
-    const tr=tbody.insertRow();
-    rowData.forEach((cell,j)=>{
-      const td=tr.insertCell();
-      if(j===3){ td.innerHTML=`<input type='number' value='${cell||''}'>`; }
-      else if(j===4){
-        td.innerHTML=`<select>
-          <option>月 / Month</option>
-          <option>周 / Week</option>
-          <option>天 / Day</option>
-        </select>`;
-        td.querySelector('select').value=cell||'月 / Month';
-      }
-      else if(j===5||j===6){ td.innerHTML=`<input type='date' value='${cell||''}'>`; }
-      else if(j===9){ td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button>`; }
-      else td.textContent=cell||'';
-    });
-    bindRowEvents(tr);
-    calculateNext(tr);
+// 行操作与状态计算
+function addRowListeners(){
+  document.querySelectorAll('td[contenteditable]').forEach(td=>td.addEventListener('input',saveLocalData));
+  document.querySelectorAll('input, select').forEach(el=>{
+    el.addEventListener('change',()=>{calculateNext(el);saveLocalData();});
   });
 }
-
-function bindRowEvents(tr){
-  tr.querySelectorAll('input, select').forEach(el=>{
-    el.addEventListener('change',()=>{calculateNext(tr); saveData(tr.closest('table').id);});
-  });
-}
-
-function calculateNext(tr){
-  const cycle=tr.cells[3].querySelector('input')?.value;
-  const unit=tr.cells[4].querySelector('select')?.value;
-  const last=tr.cells[5].querySelector('input')?.value;
-  if(!cycle||!last) return;
+function calculateNext(el){
+  if(!loggedIn || currentRole==='readonly') return;
+  const row=el.parentElement.parentElement;
+  const cycle=row.cells[3].querySelector('input')?.value;
+  const unit=row.cells[4].querySelector('select')?.value;
+  const last=row.cells[5].querySelector('input')?.value;
+  if(!last||!cycle) return;
   let d=new Date(last);
-  if(unit.includes('月')) d.setMonth(d.getMonth()+parseInt(cycle));
-  else if(unit.includes('周')) d.setDate(d.getDate()+parseInt(cycle)*7);
-  else d.setDate(d.getDate()+parseInt(cycle));
-  tr.cells[6].querySelector('input').value=d.toISOString().split('T')[0];
-  updateStatus(tr);
+  if(unit.includes('月')){d.setMonth(d.getMonth()+parseInt(cycle));}
+  else if(unit.includes('周')){d.setDate(d.getDate()+parseInt(cycle)*7);}
+  else{d.setDate(d.getDate()+parseInt(cycle));}
+  row.cells[6].querySelector('input').value=d.toISOString().split('T')[0];
+  updateStatus(row);
 }
-
-function updateStatus(tr){
-  const next=tr.cells[6].querySelector('input')?.value;
-  const status=tr.cells[8];
+function updateStatus(row){
+  const next=row.cells[6].querySelector('input')?.value;
+  const status=row.cells[8];
   if(!next) return;
-  const diff=(new Date(next)-new Date())/(1000*60*60*24);
+  const today=new Date();
+  const nextDate=new Date(next);
+  const diff=(nextDate-today)/(1000*60*60*24);
   status.className='status';
   if(diff<0){status.textContent='超期 / Overdue';status.classList.add('danger');}
   else if(diff<=7){status.textContent='即将到期 / Expiring';status.classList.add('warning');}
   else{status.textContent='正常 / Normal';status.classList.add('normal');}
 }
 
+// 新增/删除行
 function addRow(tableId){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
-  const table=document.getElementById(tableId).tBodies[0];
-  const tr=table.insertRow();
-  tr.innerHTML=`<td contenteditable='true'>新项目 / New Item</td>
-  <td contenteditable='true'>工序 / Process</td>
-  <td contenteditable='true'>责任人 / Owner</td>
+  const table=document.getElementById(tableId);
+  const row=table.insertRow();
+  row.innerHTML=`<td contenteditable='true'>新项目 / New Item</td><td contenteditable='true'>工序 / Process</td><td contenteditable='true'>责任人 / Owner</td>
   <td><input type='number' value='1'></td>
   <td>
     <select>
@@ -233,18 +218,16 @@ function addRow(tableId){
   <td contenteditable='true'>备注 / Remark</td>
   <td class='status'>正常 / Normal</td>
   <td><button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button></td>`;
-  bindRowEvents(tr);
-  calculateNext(tr);
-  saveData(tableId);
+  addRowListeners();
+  saveLocalData();
 }
-
 function deleteRow(btn){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
-  const tableId=btn.closest('table').id;
-  btn.closest('tr').remove();
-  saveData(tableId);
+  btn.parentElement.parentElement.remove();
+  saveLocalData();
 }
 
+// 账户修改与导入导出
 function changePassword(){
   if(!loggedIn || currentRole!=='admin') return;
   const newUser=prompt('请输入新用户名 / Enter new username', 'admin');
@@ -257,35 +240,47 @@ function changePassword(){
     alert('账户修改成功 / Account updated successfully');
   }
 }
-
 function exportData(){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
   const wb=XLSX.utils.book_new();
-  ['maintainTable','inspectTable'].forEach(id=>{
-    const data=JSON.parse(localStorage.getItem(id+'Data')||'[]');
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(data),id==='maintainTable'?'Maintenance':'Inspection');
+  const maintain=Array.from(document.querySelectorAll('#maintainTable tr')).map(tr=>{
+    return Array.from(tr.cells).map(td=>{
+      if(td.querySelector('input')) return td.querySelector('input').value;
+      if(td.querySelector('select')) return td.querySelector('select').value;
+      return td.textContent;
+    });
   });
+  const inspect=Array.from(document.querySelectorAll('#inspectTable tr')).map(tr=>{
+    return Array.from(tr.cells).map(td=>{
+      if(td.querySelector('input')) return td.querySelector('input').value;
+      if(td.querySelector('select')) return td.querySelector('select').value;
+      return td.textContent;
+    });
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(maintain),'Maintenance');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(inspect),'Inspection');
   XLSX.writeFile(wb,'dashboard.xlsx');
 }
-
 function importData(event){
   if(!loggedIn || currentRole!=='admin'){alert('请先登录或权限不足 / Please login or insufficient permissions'); return;}
   const file=event.target.files[0];
   const reader=new FileReader();
   reader.onload=function(e){
-    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+    const data=new Uint8Array(e.target.result);
+    const wb=XLSX.read(data,{type:'array'});
     ['Maintenance','Inspection'].forEach(sheetName=>{
       const ws=wb.Sheets[sheetName];
       if(ws){
         const aoa=XLSX.utils.sheet_to_json(ws,{header:1});
-        const tableId=sheetName==='Maintenance'?'maintainTable':'inspectTable';
-        const table=document.getElementById(tableId).tBodies[0];
-        table.innerHTML='';
-        aoa.slice(1).forEach(rowData=>{
+        const tableId = sheetName==='Maintenance'?'maintainTable':'inspectTable';
+        const table=document.getElementById(tableId);
+        const thead=table.querySelector('thead').outerHTML;
+        table.innerHTML=thead;
+        aoa.slice(1).forEach((row,i)=>{
           const tr=table.insertRow();
-          rowData.forEach((cell,j)=>{
+          row.forEach((cell,j)=>{
             const td=tr.insertCell();
-            if(j===3){ td.innerHTML=`<input type='number' value='${cell||''}'>`; }
+            if(j===3){td.innerHTML=`<input type='number' value='${cell || ''}'>`;}
             else if(j===4){
               td.innerHTML=`<select>
                 <option>月 / Month</option>
@@ -294,28 +289,80 @@ function importData(event){
               </select>`;
               td.querySelector('select').value=cell||'月 / Month';
             }
-            else if(j===5||j===6){ td.innerHTML=`<input type='date' value='${cell||''}'>`; }
-            else if(j===9){ td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button>`; }
-            else td.textContent=cell||'';
+            else if(j===5||j===6){td.innerHTML=`<input type='date' value='${cell || ''}'>`;}
+            else if(j===9){td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button>`;}
+            else{td.textContent=cell||'';}
           });
-          bindRowEvents(tr);
-          calculateNext(tr);
+          calculateNext(tr.cells[5].querySelector('input'));
         });
-        saveData(tableId);
       }
     });
+    addRowListeners();
+    saveLocalData();
   };
   reader.readAsArrayBuffer(file);
 }
 
-function loadAllData(){
-  ['maintainTable','inspectTable'].forEach(loadTableData);
+// ---------- Google Sheets 集成 ----------
+const sheetID = "你的GoogleSheetID"; // 替换为你的ID
+const sheetURL = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json`;
+
+function formatDateForInput(value){
+  if(!value) return '';
+  if(typeof value==='string' && value.includes('T')){
+    return value.split('T')[0];
+  }
+  if(typeof value==='number'){
+    const date = new Date((value - 25569)*86400*1000);
+    const y = date.getFullYear();
+    const m = ('0'+(date.getMonth()+1)).slice(-2);
+    const d = ('0'+date.getDate()).slice(-2);
+    return `${y}-${m}-${d}`;
+  }
+  return value;
 }
 
-document.addEventListener('DOMContentLoaded',()=>{
-  // 自动渲染表格即使未登录
-  loadAllData();
-});
+async function fetchSheetData(){
+  try{
+    const res = await fetch(sheetURL);
+    const text = await res.text();
+    const json = JSON.parse(text.substring(47).slice(0,-2));
+    const rows = json.table.rows.map(r => r.c.map(cell => cell ? cell.v : ""));
+    // 渲染到表格
+    renderSheetData(rows,'maintainTable');
+  }catch(err){console.error(err);}
+}
+
+function renderSheetData(rows, tableId){
+  const table = document.getElementById(tableId).tBodies[0];
+  if(!table) return;
+  table.innerHTML = '';
+  rows.forEach(rowData=>{
+    const tr = table.insertRow();
+    rowData.forEach((cell,j)=>{
+      const td = tr.insertCell();
+      if(j===3){ td.innerHTML=`<input type='number' value='${cell||''}'>`; }
+      else if(j===4){
+        td.innerHTML=`<select>
+          <option>月 / Month</option>
+          <option>周 / Week</option>
+          <option>天 / Day</option>
+        </select>`;
+        td.querySelector('select').value = cell||'月 / Month';
+      }
+      else if(j===5||j===6){
+        td.innerHTML=`<input type='date' value='${formatDateForInput(cell)}'>`;
+      }
+      else if(j===9){ td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除 / Delete</button>`; }
+      else td.textContent = cell||'';
+    });
+    addRowListeners();
+    calculateNext(tr.cells[5]?.querySelector('input'));
+  });
+}
+
+// 初始加载
+document.addEventListener('DOMContentLoaded',()=>{ loadLocalData(); });
 </script>
 </body>
 </html>
