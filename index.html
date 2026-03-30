@@ -315,6 +315,31 @@ function importData(event){
   reader.readAsArrayBuffer(file);
 }
 
+
+
+const sheetID = "1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY"; // 替换为你的 Google Sheets ID
+const sheetURL = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json`;
+
+async function loadSheetData() {
+    const res = await fetch(sheetURL);
+    const text = await res.text();
+    const json = JSON.parse(text.substring(47).slice(0, -2));
+    const rows = json.table.rows.map(r => r.c.map(cell => cell ? cell.v : ""));
+    console.log(rows);
+    return rows;
+}
+
+// 测试调用（或者用来渲染表格）
+loadSheetData().then(data => {
+    console.log("Google Sheets 数据：", data);
+    // 这里可以直接调用渲染函数，把 data 填到表格里
+});
+// ------------------- 结束 -------------------
+
+
+
+
+
 document.addEventListener('DOMContentLoaded',()=>{ loadData(false); });
 </script>
 </body>
