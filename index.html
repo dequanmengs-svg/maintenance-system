@@ -328,18 +328,8 @@ const sheetConfigs = [
 
 function formatDateForInput(value){
   if(!value) return '';
-
-  // Google Sheet 日期格式 Date(2026,2,30)
-  if(typeof value === 'string' && value.startsWith('Date(')){
-    const parts = value.match(/\d+/g);
-    if(parts){
-      const y = parts[0];
-      const m = ('0' + (parseInt(parts[1]) + 1)).slice(-2);
-      const d = ('0' + parts[2]).slice(-2);
-      return `${y}-${m}-${d}`;
-    }
-  }
-
+  return String(value).trim().split('T')[0];
+}
   // ISO 日期格式
   if(typeof value === 'string' && value.includes('T')){
     return value.split('T')[0];
