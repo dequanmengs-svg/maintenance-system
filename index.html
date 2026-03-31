@@ -28,11 +28,11 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 <div class="login-box" id="loginBox">
 账号:<input id="username" style="width:120px">
 密码:<input id="password" type="password" style="width:120px">
-<button onclick="login()">登录</button>
+<button type="button" onclick="login()">登录</button>
 <span id="roleText">未登录</span>
-<button onclick="exportData()" id="exportBtn">导出</button>
+<button type="button" onclick="exportData()" id="exportBtn">导出</button>
 <input type="file" onchange="importData(event)" id="importFile">
-<button onclick="toggleFullScreen()">大屏模式</button>
+<button type="button" onclick="toggleFullScreen()">大屏模式</button>
 </div>
 
 <button id="exitFullScreenBtn" onclick="toggleFullScreen()">退出大屏模式</button>
@@ -49,7 +49,7 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 </thead>
 <tbody></tbody>
 </table>
-<button onclick="addRow('maintainTable')" id="addMaintainBtn">新增一行</button>
+<button type="button" onclick="addRow('maintainTable')" id="addMaintainBtn">新增一行</button>
 </div>
 
 <div class="panel">
@@ -63,7 +63,7 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 </thead>
 <tbody></tbody>
 </table>
-<button onclick="addRow('inspectTable')" id="addInspectBtn">新增一行</button>
+<button type="button" onclick="addRow('inspectTable')" id="addInspectBtn">新增一行</button>
 </div>
 </div>
 
@@ -76,18 +76,18 @@ let fullScreen=false;
 
 // -------------------- 登录 --------------------
 function login(){
-    const u = document.getElementById('username').value.trim();
-    const p = document.getElementById('password').value.trim();
+    const u=document.getElementById('username').value.trim();
+    const p=document.getElementById('password').value.trim();
     if(u==='admin' && p==='123456') currentRole='admin';
     else if(u==='guest' && p==='123') currentRole='guest';
     else { alert('账号或密码错误'); return; }
 
     document.getElementById('roleText').innerText=currentRole;
     applyPermission();
-    setTimeout(fetchSheetData,100); // 延迟获取 Sheet 数据，避免阻塞
+    fetchSheetData();
 }
 
-// -------------------- 权限控制 --------------------
+// -------------------- 权限 --------------------
 function applyPermission(){
     const isAdmin=currentRole==='admin';
     document.getElementById('exportBtn').disabled=!isAdmin;
@@ -111,16 +111,12 @@ function applyPermission(){
 // -------------------- 日期格式 --------------------
 function formatDateForInput(v){
     if(!v) return '';
-    if(typeof v==='string' && v.includes('Date(')){
-        const n=v.match(/\d+/g);
-        return `${n[0]}-${String(+n[1]+1).padStart(2,'0')}-${String(n[2]).padStart(2,'0')}`;
-    }
     const d=new Date(v);
     if(isNaN(d)) return '';
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// -------------------- Google Sheet 数据 --------------------
+// -------------------- Google Sheet --------------------
 async function fetchSheetData(){
     for(const [id,name] of Object.entries(sheetMap)){
         await fetchSingleSheet(name,id);
@@ -134,14 +130,15 @@ async function fetchSingleSheet(sheetName,tableId){
         const txt=await res.text();
         const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
         renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
-        applyPermission();
     }catch(e){console.error(e);}
 }
 
+// -------------------- 渲染 --------------------
 function renderSheetData(rows,tableId){
     const tb=document.getElementById(tableId).tBodies[0];
     tb.innerHTML='';
     rows.forEach(r=>insertRow(tb,r));
+    applyPermission();
 }
 
 // -------------------- 插入行 --------------------
@@ -157,18 +154,18 @@ function insertRow(tb,r=[]){
             td.querySelector('select').value=c||'月 / Month'; 
         }
         else if(i===5||i===6){ td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`; }
-        else if(i===9){ td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`; }
+        else if(i===9){ td.innerHTML=`<button type="button" onclick='deleteRow(this)'>删除</button>`; }
         else{ td.contentEditable=true; td.textContent=c; }
-        td.onchange=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);};
-        td.oninput=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);};
+        td.onchange=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);}
+        td.oninput=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);}
     }
     autoCalcNextTime(tr); updateStatus(tr);
-    applyPermission();
 }
 
+// -------------------- UUID --------------------
 function generateUUID(){return 'id-'+Math.random().toString(36).substr(2,9);}
 
-// -------------------- 自动计算下次时间 --------------------
+// -------------------- 自动计算下次 --------------------
 function autoCalcNextTime(row){
     const cycle=parseInt(row.cells[3].querySelector('input')?.value)||0;
     const unit=row.cells[4].querySelector('select')?.value;
@@ -205,7 +202,7 @@ async function saveRowToSheet(row){
     updateStatus(row);
 }
 
-// -------------------- 删除行 --------------------
+// -------------------- 删除 --------------------
 async function deleteRow(btn){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
     const row=btn.closest('tr');
@@ -214,7 +211,7 @@ async function deleteRow(btn){
     row.remove();
 }
 
-// -------------------- 更新状态 --------------------
+// -------------------- 状态 --------------------
 function updateStatus(row){
     const next=row.cells[6].querySelector('input')?.value;
     if(!next) return;
@@ -244,17 +241,16 @@ function importData(e){
     reader.readAsText(file);
 }
 
-// -------------------- 大屏模式 --------------------
+// -------------------- 大屏 --------------------
 function toggleFullScreen(){
     fullScreen=!fullScreen;
     document.getElementById('loginBox').style.display = fullScreen ? 'none' : 'block';
     document.getElementById('exitFullScreenBtn').style.display = fullScreen ? 'block' : 'none';
 }
 
-// -------------------- 实时刷新 --------------------
-setInterval(fetchSheetData,60000); // 每分钟刷新一次
-document.addEventListener('DOMContentLoaded',fetchSheetData);
+// -------------------- 自动刷新 --------------------
+setInterval(()=>{ if(currentRole) fetchSheetData(); },60000);
+document.addEventListener('DOMContentLoaded',()=>{ if(currentRole) fetchSheetData(); });
 </script>
-
 </body>
 </html>
