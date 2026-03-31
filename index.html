@@ -26,8 +26,10 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 <div class="header">Smart Car 焊接管理看板</div>
 
 <div class="login-box" id="loginBox">
-账号:<input id="username" style="width:120px">
-密码:<input id="password" type="password" style="width:120px">
+账号:
+<input id="username" name="username" autocomplete="username" style="width:120px">
+密码:
+<input id="password" type="password" name="password" autocomplete="current-password" style="width:120px">
 <button type="button" onclick="login()">登录</button>
 <span id="roleText">未登录</span>
 <button type="button" onclick="exportData()" id="exportBtn">导出</button>
@@ -86,7 +88,7 @@ function login(){
     document.getElementById('roleText').innerText=currentRole;
     applyPermission();
 
-    // 尝试获取 Google Sheet 数据，但失败不会阻塞登录
+    // 获取 Google Sheet 数据
     fetchSheetData().catch(err=>console.warn('拉取 Google Sheet 失败：', err));
 }
 
@@ -150,16 +152,21 @@ function insertRow(tb,r=[]){
     for(let i=0;i<10;i++){
         const td=tr.insertCell();
         const c=r[i]||'';
-        if(i===3){ td.innerHTML=`<input type="number" value="${c||1}">`; }
+        if(i===3){ 
+            td.innerHTML=`<input type="number" value="${c||1}" autocomplete="off">`; 
+        }
         else if(i===4){ 
-            td.innerHTML=`<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; 
+            td.innerHTML=`<select autocomplete="off"><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; 
             td.querySelector('select').value=c||'月 / Month'; 
         }
-        else if(i===5||i===6){ td.innerHTML=`<input type="date" value="${formatDateForInput(c)}">`; }
-        else if(i===9){ td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`; }
+        else if(i===5||i===6){ 
+            td.innerHTML=`<input type="date" value="${formatDateForInput(c)}" autocomplete="off">`; 
+        }
+        else if(i===9){ 
+            td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`; 
+        }
         else{ td.contentEditable=true; td.textContent=c; }
 
-        // 安全绑定事件，避免左值错误
         const inputOrSelect=td.querySelector('input,select');
         if(inputOrSelect){
             inputOrSelect.addEventListener('input',()=>{ autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr); });
@@ -269,7 +276,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         applyPermission();
         fetchSheetData().catch(()=>{});
     }
-    if(storedFS){ toggleFullScreen(); }
+    if(storedFS){ 
+        fullScreen = true; 
+        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('exitFullScreenBtn').style.display = 'block';
+    }
 });
 </script>
 </body>
