@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V39 企业终版（登录保持版）</title>
+<title>Smart Car 焊接管理看板 V39 企业终版（修复版）</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
@@ -166,7 +166,10 @@ function insertRow(tb,r=[]){
             td.querySelector('select').value=c.v||'月 / Month'; 
         }
         else if(i===5||i===6){ td.innerHTML=`<input type="date" value="${formatDateForInput(c.v)}" autocomplete="off">`; }
-        else if(i===9){ td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`; }
+        else if(i===9){ 
+            td.innerHTML=`<button type="button">删除</button>`; 
+            td.querySelector('button').addEventListener('click',()=>deleteRow(tr));
+        }
         else{ td.contentEditable=true; td.textContent=c.v; }
 
         const inputOrSelect=td.querySelector('input,select');
@@ -232,53 +235,17 @@ async function saveRowToSheet(row){
     }
 }
 
+// -------------------- 新增行 --------------------
 async function addRow(id){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
     const tb=document.getElementById(id).tBodies[0];
-    const tr=tb.insertRow();
-    tr.dataset.id=generateUUID();
-    for(let i=0;i<10;i++){
-        const td=tr.insertCell();
-        if(i===3) td.innerHTML="<input type='number' value='1'>";
-        else if(i===4) td.innerHTML="<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>";
-        else if(i===5||i===6) td.innerHTML="<input type='date'>";
-        else if(i===9) td.innerHTML="<button onclick='deleteRow(this)'>删除</button>";
-        else td.contentEditable=true;
-    }
-    autoCalcNextTime(tr);
-    updateStatus(tr);
-
-    const values=[];
-    for(let i=0;i<8;i++){
-    values.push(tr.cells[i].querySelector('input,select')?.value || tr.cells[i].textContent);
-}
-    values.push(tr.cells[8].textContent||'');
-    values.push(tr.dataset.id);
-    try{
-        await fetch(scriptURL,{
-            method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({
-                action:'add',
-                sheet:sheetMap[id],
-                values:values
-            })
-        });
-        showToast('新增行成功 ✔');
-    }catch(e){
-        console.warn('新增行同步失败',e);
-        showToast('新增行失败 ❌');
-    }
-
-    tr.querySelectorAll('input,select,[contenteditable]').forEach(el=>{
-        el.addEventListener('input',()=>saveRowToSheet(tr));
-        el.addEventListener('change',()=>saveRowToSheet(tr));
-    });
+    insertRow(tb,[]);
+    applyPermission();
 }
 
-async function deleteRow(btn){
+// -------------------- 删除行 --------------------
+async function deleteRow(row){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
-    const row=btn.closest('tr');
     const tableId=row.closest('table').id;
     try{
         await fetch(scriptURL,{
@@ -322,8 +289,12 @@ function importData(e){
     const file=e.target.files[0]; const reader=new FileReader();
     reader.onload=()=>{
         const data=JSON.parse(reader.result);
-        document.querySelectorAll('tbody').forEach(tb=>tb.innerHTML='');
-        data.forEach(r=>insertRow(document.getElementById('maintainTable').tBodies[0],r));
+        ['maintainTable','inspectTable'].forEach(id=>document.getElementById(id).tBodies[0].innerHTML='');
+        data.forEach(r=>{
+            if(r[0] && r[0].toLowerCase().includes('maintain')) insertRow(document.getElementById('maintainTable').tBodies[0], r);
+            else insertRow(document.getElementById('inspectTable').tBodies[0], r);
+        });
+        applyPermission();
     };
     reader.readAsText(file);
 }
