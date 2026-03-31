@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V39 权限终版</title>
+<title>Smart Car 焊接管理看板 V39 终版</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
@@ -19,7 +19,7 @@ input,select{width:100%;background:#0f172a;color:white;border:1px solid #475569;
 .danger{background:#dc2626}
 button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:8px;cursor:pointer}
 
-/* 退出大屏模式按钮 */
+/* 大屏退出按钮 */
 #exitFullScreenBtn{
 position:fixed;top:10px;right:10px;z-index:1000;
 padding:5px 10px;background:#dc2626;color:white;
@@ -29,17 +29,15 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 </head>
 <body>
 
-<div class="header">Smart Car 焊接管理看板 V39 权限终版</div>
+<div class="header">Smart Car 焊接管理看板 V39 终版</div>
 
 <div class="login-box" id="loginBox">
-账号:
-<input id="username" style="width:120px">
-密码:
-<input id="password" type="password" style="width:120px">
+账号:<input id="username" style="width:120px">
+密码:<input id="password" type="password" style="width:120px">
 <button onclick="login()">登录</button>
 <span id="roleText">未登录</span>
-<button onclick="exportData()" id="exportBtn">导出</button>
-<input type="file" onchange="importData(event)" id="importFile">
+<button onclick="exportData()" id="exportBtn" disabled>导出</button>
+<input type="file" onchange="importData(event)" id="importFile" disabled>
 <button onclick="toggleFullScreen()">大屏模式</button>
 </div>
 
@@ -57,7 +55,7 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 </thead>
 <tbody></tbody>
 </table>
-<button onclick="addRow('maintainTable')" id="addMaintainBtn">新增一行</button>
+<button onclick="addRow('maintainTable')" id="addMaintainBtn" disabled>新增一行</button>
 </div>
 
 <div class="panel">
@@ -71,21 +69,21 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 </thead>
 <tbody></tbody>
 </table>
-<button onclick="addRow('inspectTable')" id="addInspectBtn">新增一行</button>
+<button onclick="addRow('inspectTable')" id="addInspectBtn" disabled>新增一行</button>
 </div>
 </div>
 
 <script>
 const sheetID='1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
 const scriptURL='AKfycbw2IzLgR7JQzq-sMfc3JEk1QGRplU3untb_fkgA4RAAugWOt_h6pMhRF_YdfTdfCFqkDg';
-let currentRole=null;
 const sheetMap={maintainTable:'Maintenance',inspectTable:'Inspection'};
-let fullScreen=false;
+let currentRole=null, fullScreen=false;
+let adminEditing=false;
 
 // -------------------- 登录 --------------------
 function login(){
-const u=document.getElementById('username').value;
-const p=document.getElementById('password').value;
+const u=document.getElementById('username').value.trim();
+const p=document.getElementById('password').value.trim();
 if(u==='admin' && p==='123456') currentRole='admin';
 else if(u==='guest' && p==='123') currentRole='guest';
 else { alert('账号或密码错误'); return; }
@@ -94,7 +92,7 @@ applyPermission();
 fetchSheetData();
 }
 
-// -------------------- 权限控制 --------------------
+// -------------------- 权限 --------------------
 function applyPermission(){
 const isAdmin=currentRole==='admin';
 document.getElementById('exportBtn').disabled=!isAdmin;
@@ -108,7 +106,7 @@ const cell=tr.cells[i];
 if(cell.querySelector('input,select')){
 cell.querySelector('input,select').disabled=!isAdmin;
 }else{
-cell.contentEditable=isAdmin && i<8; // 前8列可编辑
+cell.contentEditable=isAdmin && i<8;
 }
 }
 tr.querySelector('button')?.disabled=!isAdmin;
@@ -127,19 +125,22 @@ if(isNaN(d)) return '';
 return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// -------------------- Google Sheet 数据 --------------------
+// -------------------- Google Sheet --------------------
 async function fetchSheetData(){
+if(adminEditing) return; // 避免覆盖正在编辑
 for(const [id,name] of Object.entries(sheetMap)){
 await fetchSingleSheet(name,id);
 }
 }
 
 async function fetchSingleSheet(sheetName,tableId){
+try{
 const url=`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${sheetName}&tqx=out:json`;
 const res=await fetch(url);
 const txt=await res.text();
 const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
 renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
+}catch(e){console.error(e);}
 applyPermission();
 }
 
@@ -158,20 +159,17 @@ const td=tr.insertCell();
 const c=r[i]||'';
 if(i===3){td.innerHTML=`<input type='number' value='${c||1}'>`;}
 else if(i===4){td.innerHTML=`<select>
-<option>月 / Month</option>
-<option>周 / Week</option>
-<option>天 / Day</option>
-</select>`;td.querySelector('select').value=c||'月 / Month';}
+<option>月 / Month</option><option>周 / Week</option><option>天 / Day</option>
+</select>`; td.querySelector('select').value=c||'月 / Month';}
 else if(i===5||i===6){td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`;}
 else if(i===9){td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`;}
 else{td.contentEditable=true; td.textContent=c;}
-td.onchange=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);};
-td.oninput=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);};
+td.onchange=td.oninput=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);};
 }
 autoCalcNextTime(tr); updateStatus(tr);
-applyPermission();
 }
 
+// -------------------- UUID --------------------
 function generateUUID(){return 'id-'+Math.random().toString(36).substr(2,9);}
 
 // -------------------- 自动计算下次时间 --------------------
@@ -185,6 +183,7 @@ if(unit.includes('月')) d.setMonth(d.getMonth()+cycle);
 if(unit.includes('周')) d.setDate(d.getDate()+cycle*7);
 if(unit.includes('天')) d.setDate(d.getDate()+cycle);
 row.cells[6].querySelector('input').value=formatDateForInput(d);
+updateStatus(row);
 }
 
 // -------------------- 添加行 --------------------
@@ -210,10 +209,12 @@ const input=cell.querySelector('input,select');
 values.push(input?input.value:cell.textContent);
 }
 values.push(row.dataset.id);
+try{
 await fetch(scriptURL,{
 method:'POST',
 body:JSON.stringify({action:'update',sheet:sheetMap[tableId],id:row.dataset.id,values})
 });
+}catch(e){console.error(e);}
 updateStatus(row);
 }
 
@@ -222,14 +223,16 @@ async function deleteRow(btn){
 if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
 const row=btn.closest('tr');
 const tableId=row.closest('table').id;
+try{
 await fetch(scriptURL,{
 method:'POST',
 body:JSON.stringify({action:'delete',sheet:sheetMap[tableId],id:row.dataset.id})
 });
+}catch(e){console.error(e);}
 row.remove();
 }
 
-// -------------------- 更新状态 --------------------
+// -------------------- 状态 --------------------
 function updateStatus(row){
 const next=row.cells[6].querySelector('input')?.value;
 if(!next) return;
@@ -244,14 +247,16 @@ else{s.textContent='正常';s.classList.add('normal');}
 function exportData(){
 if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
 const data=[...document.querySelectorAll('tbody tr')].map(r=>[...r.cells].slice(0,8).map(td=>{
-const input=td.querySelector('input,select'); return input?input.value:td.textContent;}).concat(r.dataset.id));
+const input=td.querySelector('input,select'); return input?input.value:td.textContent;
+}).concat(r.dataset.id));
 const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
 const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup.json'; a.click();
 }
 
 function importData(e){
 if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
-const file=e.target.files[0]; const reader=new FileReader();
+const file=e.target.files[0]; 
+const reader=new FileReader();
 reader.onload=()=>{
 const data=JSON.parse(reader.result);
 document.querySelectorAll('tbody').forEach(tb=>tb.innerHTML='');
@@ -268,7 +273,7 @@ document.getElementById('exitFullScreenBtn').style.display = fullScreen ? 'block
 }
 
 // -------------------- 实时刷新 --------------------
-setInterval(fetchSheetData,60000); // 每分钟刷新一次
+setInterval(fetchSheetData,60000);
 document.addEventListener('DOMContentLoaded',fetchSheetData);
 </script>
 
