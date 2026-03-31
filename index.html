@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V39 企业终版</title>
+<title>Smart Car 焊接管理看板 V39 企业终版（登录保持版）</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
@@ -23,7 +23,7 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 </head>
 <body>
 
-<div class="header">Smart Car 焊接管理看板 V39 企业终版</div>
+<div class="header">Smart Car 焊接管理看板</div>
 
 <div class="login-box" id="loginBox">
 账号:<input id="username" style="width:120px">
@@ -82,6 +82,7 @@ function login(){
     else if(u==='guest' && p==='123') currentRole='guest';
     else { alert('账号或密码错误'); return; }
 
+    localStorage.setItem('currentRole', currentRole);
     document.getElementById('roleText').innerText=currentRole;
     applyPermission();
     fetchSheetData();
@@ -246,11 +247,24 @@ function toggleFullScreen(){
     fullScreen=!fullScreen;
     document.getElementById('loginBox').style.display = fullScreen ? 'none' : 'block';
     document.getElementById('exitFullScreenBtn').style.display = fullScreen ? 'block' : 'none';
+    localStorage.setItem('fullScreen', fullScreen);
 }
 
 // -------------------- 自动刷新 --------------------
 setInterval(()=>{ if(currentRole) fetchSheetData(); },60000);
-document.addEventListener('DOMContentLoaded',()=>{ if(currentRole) fetchSheetData(); });
+
+// -------------------- 初始化登录保持 --------------------
+document.addEventListener('DOMContentLoaded',()=>{
+    const storedRole=localStorage.getItem('currentRole');
+    const storedFS=localStorage.getItem('fullScreen')==='true';
+    if(storedRole){ 
+        currentRole=storedRole;
+        document.getElementById('roleText').innerText=currentRole;
+        applyPermission();
+        fetchSheetData();
+    }
+    if(storedFS){ toggleFullScreen(); }
+});
 </script>
 </body>
 </html>
