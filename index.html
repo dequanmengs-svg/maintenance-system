@@ -195,16 +195,8 @@ function autoCalcNextTime(row){
     row.cells[6].querySelector('input').value=formatDateForInput(d);
 }
 
-// -------------------- 添加行 --------------------
-async function addRow(id){
-    if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
-    const tb=document.getElementById(id).tBodies[0];
-    insertRow(tb);
-    const tr=tb.rows[tb.rows.length-1];
-    await fetch(scriptURL,{method:'POST',body:JSON.stringify({action:'add',sheet:sheetMap[id],values:[...Array(8).map(()=>''),tr.dataset.id]})});
-}
-
-// -------------------- 保存行 --------------------
+<script>
+// ---------- Google Sheet 同步逻辑增强 ----------
 async function saveRowToSheet(row){
     if(currentRole!=='admin') return;
     const tableId=row.closest('table').id;
@@ -214,19 +206,56 @@ async function saveRowToSheet(row){
         const input=cell.querySelector('input,select');
         values.push(input?input.value:cell.textContent);
     }
+    // uuid 作为最后一列保证唯一性
     values.push(row.dataset.id);
-    await fetch(scriptURL,{method:'POST',body:JSON.stringify({action:'update',sheet:sheetMap[tableId],id:row.dataset.id,values})});
-    updateStatus(row);
+
+    try{
+        await fetch(scriptURL,{
+            method:'POST',
+            body:JSON.stringify({
+                action:'update',
+                sheet:sheetMap[tableId],
+                id:row.dataset.id,
+                values
+            })
+        });
+        updateStatus(row);
+    }catch(e){
+        console.warn('同步 Google Sheet 失败', e);
+    }
 }
 
-// -------------------- 删除 --------------------
+async function addRow(id){
+    if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
+    const tb=document.getElementById(id).tBodies[0];
+    insertRow(tb);
+    const tr=tb.rows[tb.rows.length-1];
+    const values=[...Array(8).map(()=>''), tr.dataset.id];
+    try{
+        await fetch(scriptURL,{
+            method:'POST',
+            body:JSON.stringify({action:'add',sheet:sheetMap[id],values})
+        });
+    }catch(e){
+        console.warn('新增行同步失败', e);
+    }
+}
+
 async function deleteRow(btn){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
     const row=btn.closest('tr');
     const tableId=row.closest('table').id;
-    await fetch(scriptURL,{method:'POST',body:JSON.stringify({action:'delete',sheet:sheetMap[tableId],id:row.dataset.id})});
-    row.remove();
+    try{
+        await fetch(scriptURL,{
+            method:'POST',
+            body:JSON.stringify({action:'delete',sheet:sheetMap[tableId],id:row.dataset.id})
+        });
+        row.remove();
+    }catch(e){
+        console.warn('删除行同步失败', e);
+    }
 }
+</script>
 
 // -------------------- 状态 --------------------
 function updateStatus(row){
