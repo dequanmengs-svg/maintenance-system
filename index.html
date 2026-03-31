@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V38 Enterprise</title>
+<title>Smart Car 焊接管理看板 V39 实时刷新</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
+.login-box{margin-bottom:20px;text-align:center}
 .container{display:flex;gap:20px;flex-wrap:wrap}
-.panel{flex:1;background:#1e293b;border-radius:12px;padding:20px;min-width:300px}
+.panel{flex:1;background:#1e293b;border-radius:12px;padding:20px;min-width:300px;overflow:auto}
 table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
 th,td{border:1px solid #334155;padding:8px;text-align:center}
 th{background:#334155}
@@ -16,12 +17,24 @@ input,select{width:100%;background:#0f172a;color:white;border:1px solid #475569;
 .normal{background:#16a34a}
 .warning{background:#eab308;color:black}
 .danger{background:#dc2626}
-button{margin-top:10px;padding:6px 12px;background:#38bdf8;border:none;border-radius:8px;cursor:pointer}
+button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:8px;cursor:pointer}
 </style>
 </head>
 <body>
 
-<div class="header">Smart Car 焊接管理看板 V38</div>
+<div class="header">Smart Car 焊接管理看板 V39 实时刷新</div>
+
+<div class="login-box" id="loginBox">
+账号:
+<input id="username" style="width:120px">
+密码:
+<input id="password" type="password" style="width:120px">
+<button onclick="login()">登录</button>
+<span id="roleText">未登录</span>
+<button onclick="exportData()">导出</button>
+<input type="file" onchange="importData(event)">
+<button onclick="toggleFullScreen()">大屏模式</button>
+</div>
 
 <div class="container">
 <div class="panel">
@@ -56,26 +69,43 @@ button{margin-top:10px;padding:6px 12px;background:#38bdf8;border:none;border-ra
 <script>
 const sheetID='1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
 const scriptURL='AKfycbw2IzLgR7JQzq-sMfc3JEk1QGRplU3untb_fkgA4RAAugWOt_h6pMhRF_YdfTdfCFqkDg';
+let currentRole='guest';
+const sheetMap={maintainTable:'Maintenance',inspectTable:'Inspection'};
 
-const sheetMap={
-maintainTable:'Maintenance',
-inspectTable:'Inspection'
-};
+// -------------------- 登录 --------------------
+function login(){
+const u=document.getElementById('username').value;
+const p=document.getElementById('password').value;
+currentRole=(u==='admin'&&p==='123456')?'admin':'guest';
+document.getElementById('roleText').innerText=currentRole;
+applyPermission();
+}
 
+// -------------------- 权限 --------------------
+function applyPermission(){
+document.querySelectorAll('[contenteditable],input,select,button').forEach(el=>{
+if(currentRole==='guest'){
+const td=el.closest('td');
+if(td&&(td.cellIndex>=3&&td.cellIndex<=6)) el.disabled=true;
+else if(el.textContent.includes('新增')||el.textContent.includes('删除')) el.disabled=true;
+else el.disabled=false;
+}else el.disabled=false;
+});
+}
+
+// -------------------- 日期格式 --------------------
 function formatDateForInput(v){
 if(!v) return '';
-
-if(typeof v==='string' && v.includes('Date(')){
+if(typeof v==='string'&&v.includes('Date(')){
 const n=v.match(/\d+/g);
 return `${n[0]}-${String(+n[1]+1).padStart(2,'0')}-${String(n[2]).padStart(2,'0')}`;
 }
-
 const d=new Date(v);
 if(isNaN(d)) return '';
-
 return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// -------------------- Google Sheet 数据 --------------------
 async function fetchSheetData(){
 for(const [id,name] of Object.entries(sheetMap)){
 await fetchSingleSheet(name,id);
@@ -84,135 +114,135 @@ await fetchSingleSheet(name,id);
 
 async function fetchSingleSheet(sheetName,tableId){
 const url=`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${sheetName}&tqx=out:json`;
-
 const res=await fetch(url);
 const txt=await res.text();
 const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
-
-renderSheetData(
-json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),
-tableId
-);
+renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
 }
 
 function renderSheetData(rows,tableId){
 const tb=document.getElementById(tableId).tBodies[0];
-tb.innerHTML='';
-
-rows.forEach(r=>insertRow(tb,r));
+const existingIds=new Set([...tb.rows].map(r=>r.dataset.id));
+rows.forEach(r=>{
+if(r[10]&&existingIds.has(r[10])) return; // 不覆盖正在编辑的行
+insertRow(tb,r);
+});
 }
 
+// -------------------- 插入行 --------------------
 function insertRow(tb,r=[]){
 const tr=tb.insertRow();
-
+tr.dataset.id=r[10]||generateUUID();
 for(let i=0;i<10;i++){
 const td=tr.insertCell();
 const c=r[i]||'';
-
-if(i===3){
-td.innerHTML=`<input type='number' value='${c||1}'>`;
-}
-else if(i===4){
-td.innerHTML=`<select>
+if(i===3){td.innerHTML=`<input type='number' value='${c||1}'>`;}
+else if(i===4){td.innerHTML=`<select>
 <option>月 / Month</option>
 <option>周 / Week</option>
 <option>天 / Day</option>
-</select>`;
-td.querySelector('select').value=c||'月 / Month';
+</select>`;td.querySelector('select').value=c||'月 / Month';}
+else if(i===5||i===6){td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`;}
+else if(i===9){td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`;}
+else{td.contentEditable=i<8;td.textContent=c;}
+td.onchange=()=>{autoCalcNextTime(tr); saveRowToSheet(tr);};
+td.oninput=()=>{autoCalcNextTime(tr); saveRowToSheet(tr);};
 }
-else if(i===5||i===6){
-td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`;
-}
-else if(i===9){
-td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`;
-}
-else{
-td.contentEditable=i<8;
-td.textContent=c;
-}
+autoCalcNextTime(tr); updateStatus(tr); applyPermission();
 }
 
-tr.querySelectorAll('input,select,[contenteditable]').forEach(el=>{
-el.onchange=()=>saveRowToSheet(tr);
-});
+function generateUUID(){return 'id-'+Math.random().toString(36).substr(2,9);}
 
-updateStatus(tr);
+// -------------------- 自动计算下次时间 --------------------
+function autoCalcNextTime(row){
+const cycle=parseInt(row.cells[3].querySelector('input')?.value)||0;
+const unit=row.cells[4].querySelector('select')?.value;
+const last=row.cells[5].querySelector('input')?.value;
+if(!last) return;
+let d=new Date(last);
+if(unit.includes('月')) d.setMonth(d.getMonth()+cycle);
+if(unit.includes('周')) d.setDate(d.getDate()+cycle*7);
+if(unit.includes('天')) d.setDate(d.getDate()+cycle);
+row.cells[6].querySelector('input').value=formatDateForInput(d);
 }
 
+// -------------------- 添加行 --------------------
 async function addRow(id){
 const tb=document.getElementById(id).tBodies[0];
 insertRow(tb);
-
+const tr=tb.rows[tb.rows.length-1];
 await fetch(scriptURL,{
 method:'POST',
-body:JSON.stringify({
-action:'add',
-sheet:sheetMap[id],
-values:['','','','1','月 / Month','','','','']
-})
+body:JSON.stringify({action:'add',sheet:sheetMap[id],values:[...Array(8).map(()=>''),tr.dataset.id]})
 });
 }
 
+// -------------------- 保存行 --------------------
 async function saveRowToSheet(row){
 const tableId=row.closest('table').id;
 const values=[];
-
 for(let i=0;i<8;i++){
 const cell=row.cells[i];
 const input=cell.querySelector('input,select');
-values.push(input ? input.value : cell.textContent);
+values.push(input?input.value:cell.textContent);
 }
-
+values.push(row.dataset.id);
 await fetch(scriptURL,{
 method:'POST',
-body:JSON.stringify({
-action:'update',
-sheet:sheetMap[tableId],
-row:row.rowIndex,
-values:values
-})
+body:JSON.stringify({action:'update',sheet:sheetMap[tableId],id:row.dataset.id,values})
 });
-
 updateStatus(row);
 }
 
+// -------------------- 删除行 --------------------
 async function deleteRow(btn){
 const row=btn.closest('tr');
 const tableId=row.closest('table').id;
-
 await fetch(scriptURL,{
 method:'POST',
-body:JSON.stringify({
-action:'delete',
-sheet:sheetMap[tableId],
-row:row.rowIndex
-})
+body:JSON.stringify({action:'delete',sheet:sheetMap[tableId],id:row.dataset.id})
 });
-
 row.remove();
 }
 
+// -------------------- 更新状态 --------------------
 function updateStatus(row){
 const next=row.cells[6].querySelector('input')?.value;
 if(!next) return;
-
 const diff=(new Date(next)-new Date())/86400000;
-const s=row.cells[8];
-s.className='';
+const s=row.cells[8]; s.className='';
+if(diff<0){s.textContent='超期';s.classList.add('danger');}
+else if(diff<=7){s.textContent='即将到期';s.classList.add('warning');}
+else{s.textContent='正常';s.classList.add('normal');}
+}
 
-if(diff<0){
-s.textContent='超期';
-s.classList.add('danger');
+// -------------------- 导入/导出 --------------------
+function exportData(){
+const data=[...document.querySelectorAll('tbody tr')].map(r=>[...r.cells].slice(0,8).map(td=>{
+const input=td.querySelector('input,select'); return input?input.value:td.textContent;}).concat(r.dataset.id));
+const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup.json'; a.click();
 }
-else if(diff<=7){
-s.textContent='即将到期';
-s.classList.add('warning');
+
+function importData(e){
+const file=e.target.files[0]; const reader=new FileReader();
+reader.onload=()=>{
+const data=JSON.parse(reader.result);
+document.querySelectorAll('tbody').forEach(tb=>tb.innerHTML='');
+data.forEach(r=>insertRow(document.getElementById('maintainTable').tBodies[0],r));
+};
+reader.readAsText(file);
 }
-else{
-s.textContent='正常';
-s.classList.add('normal');
+
+// -------------------- 大屏模式 --------------------
+let fullScreen=false;
+function toggleFullScreen(){
+fullScreen=!fullScreen;
+document.getElementById('loginBox').style.display=fullScreen?'none':'block';
 }
-}
+
+// -------------------- 实时刷新 --------------------
+setInterval(fetchSheetData,600000); // 每十分钟刷新一次
 
 document.addEventListener('DOMContentLoaded',fetchSheetData);
 </script>
