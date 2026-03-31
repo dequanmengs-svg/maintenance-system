@@ -249,11 +249,11 @@ async function addRow(id){
     updateStatus(tr);
 
     const values=[];
-    for(let i=0;i<8;i++) values.push(tr.cells[i].querySelector('input,select')?.value || tr.cells[i].textContent);
-    values.push(tr.cells[7].textContent||'');
+    for(let i=0;i<8;i++){
+    values.push(tr.cells[i].querySelector('input,select')?.value || tr.cells[i].textContent);
+}
     values.push(tr.cells[8].textContent||'');
     values.push(tr.dataset.id);
-
     try{
         await fetch(scriptURL,{
             method:'POST',
