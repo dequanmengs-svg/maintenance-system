@@ -85,7 +85,9 @@ function login(){
     localStorage.setItem('currentRole', currentRole);
     document.getElementById('roleText').innerText=currentRole;
     applyPermission();
-    fetchSheetData();
+
+    // 尝试获取 Google Sheet 数据，但失败不会阻塞登录
+    fetchSheetData().catch(err=>console.warn('拉取 Google Sheet 失败：', err));
 }
 
 // -------------------- 权限 --------------------
@@ -99,13 +101,12 @@ function applyPermission(){
     document.querySelectorAll('tbody tr').forEach(tr=>{
         for(let i=0;i<10;i++){
             const cell=tr.cells[i];
-            if(cell.querySelector('input,select')){
-                cell.querySelector('input,select').disabled=!isAdmin;
-            } else {
-                cell.contentEditable=isAdmin && i<8;
-            }
+            const inp=cell.querySelector('input,select');
+            if(inp){ inp.disabled=!isAdmin; }
+            else{ cell.contentEditable=isAdmin && i<8; }
         }
-        tr.querySelector('button')?.disabled=!isAdmin;
+        const btn=tr.querySelector('button');
+        if(btn) btn.disabled=!isAdmin;
     });
 }
 
@@ -131,7 +132,7 @@ async function fetchSingleSheet(sheetName,tableId){
         const txt=await res.text();
         const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
         renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
-    }catch(e){console.error(e);}
+    }catch(e){console.warn('Sheet 拉取失败：', e);}
 }
 
 // -------------------- 渲染 --------------------
@@ -149,16 +150,21 @@ function insertRow(tb,r=[]){
     for(let i=0;i<10;i++){
         const td=tr.insertCell();
         const c=r[i]||'';
-        if(i===3){ td.innerHTML=`<input type='number' value='${c||1}'>`; }
+        if(i===3){ td.innerHTML=`<input type="number" value="${c||1}">`; }
         else if(i===4){ 
             td.innerHTML=`<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; 
             td.querySelector('select').value=c||'月 / Month'; 
         }
-        else if(i===5||i===6){ td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`; }
-        else if(i===9){ td.innerHTML=`<button type="button" onclick='deleteRow(this)'>删除</button>`; }
+        else if(i===5||i===6){ td.innerHTML=`<input type="date" value="${formatDateForInput(c)}">`; }
+        else if(i===9){ td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`; }
         else{ td.contentEditable=true; td.textContent=c; }
-        td.onchange=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);}
-        td.oninput=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);}
+
+        // 安全绑定事件，避免左值错误
+        const inputOrSelect=td.querySelector('input,select');
+        if(inputOrSelect){
+            inputOrSelect.addEventListener('input',()=>{ autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr); });
+            inputOrSelect.addEventListener('change',()=>{ autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr); });
+        }
     }
     autoCalcNextTime(tr); updateStatus(tr);
 }
@@ -234,10 +240,10 @@ function exportData(){
 function importData(e){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
     const file=e.target.files[0]; const reader=new FileReader();
-    reader.onload=()=>{
-        const data=JSON.parse(reader.result);
-        document.querySelectorAll('tbody').forEach(tb=>tb.innerHTML='');
-        data.forEach(r=>insertRow(document.getElementById('maintainTable').tBodies[0],r));
+    reader.onload=()=>{ 
+        const data=JSON.parse(reader.result); 
+        document.querySelectorAll('tbody').forEach(tb=>tb.innerHTML=''); 
+        data.forEach(r=>insertRow(document.getElementById('maintainTable').tBodies[0],r)); 
     };
     reader.readAsText(file);
 }
@@ -251,7 +257,7 @@ function toggleFullScreen(){
 }
 
 // -------------------- 自动刷新 --------------------
-setInterval(()=>{ if(currentRole) fetchSheetData(); },60000);
+setInterval(()=>{ if(currentRole) fetchSheetData().catch(()=>{}); },60000);
 
 // -------------------- 初始化登录保持 --------------------
 document.addEventListener('DOMContentLoaded',()=>{
@@ -261,7 +267,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         currentRole=storedRole;
         document.getElementById('roleText').innerText=currentRole;
         applyPermission();
-        fetchSheetData();
+        fetchSheetData().catch(()=>{});
     }
     if(storedFS){ toggleFullScreen(); }
 });
