@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V39 实时刷新</title>
+<title>Smart Car 焊接管理看板 V39 大屏终版</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
@@ -29,7 +29,7 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 </head>
 <body>
 
-<div class="header">Smart Car 焊接管理看板 V39 实时刷新</div>
+<div class="header">Smart Car 焊接管理看板 V39 大屏终版</div>
 
 <div class="login-box" id="loginBox">
 账号:
@@ -90,6 +90,7 @@ const p=document.getElementById('password').value;
 currentRole=(u==='admin'&&p==='123456')?'admin':'guest';
 document.getElementById('roleText').innerText=currentRole;
 applyPermission();
+fetchSheetData();
 }
 
 // -------------------- 权限 --------------------
@@ -133,11 +134,8 @@ renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
 
 function renderSheetData(rows,tableId){
 const tb=document.getElementById(tableId).tBodies[0];
-const existingIds=new Set([...tb.rows].map(r=>r.dataset.id));
-rows.forEach(r=>{
-if(r[10]&&existingIds.has(r[10])) return; // 不覆盖正在编辑的行
-insertRow(tb,r);
-});
+tb.innerHTML='';
+rows.forEach(r=>insertRow(tb,r));
 }
 
 // -------------------- 插入行 --------------------
@@ -254,7 +252,6 @@ document.getElementById('exitFullScreenBtn').style.display = fullScreen ? 'block
 
 // -------------------- 实时刷新 --------------------
 setInterval(fetchSheetData,60000); // 每分钟刷新一次
-
 document.addEventListener('DOMContentLoaded',fetchSheetData);
 </script>
 
