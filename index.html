@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V39 大屏终版</title>
+<title>Smart Car 焊接管理看板 V39 权限终版</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
@@ -29,7 +29,7 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 </head>
 <body>
 
-<div class="header">Smart Car 焊接管理看板 V39 大屏终版</div>
+<div class="header">Smart Car 焊接管理看板 V39 权限终版</div>
 
 <div class="login-box" id="loginBox">
 账号:
@@ -38,12 +38,11 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 <input id="password" type="password" style="width:120px">
 <button onclick="login()">登录</button>
 <span id="roleText">未登录</span>
-<button onclick="exportData()">导出</button>
-<input type="file" onchange="importData(event)">
+<button onclick="exportData()" id="exportBtn">导出</button>
+<input type="file" onchange="importData(event)" id="importFile">
 <button onclick="toggleFullScreen()">大屏模式</button>
 </div>
 
-<!-- 退出大屏模式按钮 -->
 <button id="exitFullScreenBtn" onclick="toggleFullScreen()">退出大屏模式</button>
 
 <div class="container">
@@ -58,7 +57,7 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 </thead>
 <tbody></tbody>
 </table>
-<button onclick="addRow('maintainTable')">新增一行</button>
+<button onclick="addRow('maintainTable')" id="addMaintainBtn">新增一行</button>
 </div>
 
 <div class="panel">
@@ -72,14 +71,14 @@ border:none;border-radius:6px;display:none;cursor:pointer;
 </thead>
 <tbody></tbody>
 </table>
-<button onclick="addRow('inspectTable')">新增一行</button>
+<button onclick="addRow('inspectTable')" id="addInspectBtn">新增一行</button>
 </div>
 </div>
 
 <script>
 const sheetID='1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
-const scriptURL='AKfycbw2IzLgR7JQzq-sMfc3JEk1QGRplU3untb_fkgA4RAAugWOt_h6pMhRF_YdfTdfCFqkDg';
-let currentRole='guest';
+const scriptURL='YOUR_APPS_SCRIPT_URL';
+let currentRole=null;
 const sheetMap={maintainTable:'Maintenance',inspectTable:'Inspection'};
 let fullScreen=false;
 
@@ -87,21 +86,32 @@ let fullScreen=false;
 function login(){
 const u=document.getElementById('username').value;
 const p=document.getElementById('password').value;
-currentRole=(u==='admin'&&p==='123456')?'admin':'guest';
+if(u==='admin' && p==='123456') currentRole='admin';
+else if(u==='guest' && p==='123') currentRole='guest';
+else { alert('账号或密码错误'); return; }
 document.getElementById('roleText').innerText=currentRole;
 applyPermission();
 fetchSheetData();
 }
 
-// -------------------- 权限 --------------------
+// -------------------- 权限控制 --------------------
 function applyPermission(){
-document.querySelectorAll('[contenteditable],input,select,button').forEach(el=>{
-if(currentRole==='guest'){
-const td=el.closest('td');
-if(td&&(td.cellIndex>=3&&td.cellIndex<=6)) el.disabled=true;
-else if(el.textContent.includes('新增')||el.textContent.includes('删除')) el.disabled=true;
-else el.disabled=false;
-}else el.disabled=false;
+const isAdmin=currentRole==='admin';
+document.getElementById('exportBtn').disabled=!isAdmin;
+document.getElementById('importFile').disabled=!isAdmin;
+document.getElementById('addMaintainBtn').disabled=!isAdmin;
+document.getElementById('addInspectBtn').disabled=!isAdmin;
+
+document.querySelectorAll('tbody tr').forEach(tr=>{
+for(let i=0;i<10;i++){
+const cell=tr.cells[i];
+if(cell.querySelector('input,select')){
+cell.querySelector('input,select').disabled=!isAdmin;
+}else{
+cell.contentEditable=isAdmin && i<8; // 前8列可编辑
+}
+}
+tr.querySelector('button')?.disabled=!isAdmin;
 });
 }
 
@@ -130,6 +140,7 @@ const res=await fetch(url);
 const txt=await res.text();
 const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
 renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
+applyPermission();
 }
 
 function renderSheetData(rows,tableId){
@@ -153,11 +164,12 @@ else if(i===4){td.innerHTML=`<select>
 </select>`;td.querySelector('select').value=c||'月 / Month';}
 else if(i===5||i===6){td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`;}
 else if(i===9){td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`;}
-else{td.contentEditable=i<8;td.textContent=c;}
-td.onchange=()=>{autoCalcNextTime(tr); saveRowToSheet(tr);};
-td.oninput=()=>{autoCalcNextTime(tr); saveRowToSheet(tr);};
+else{td.contentEditable=true; td.textContent=c;}
+td.onchange=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);};
+td.oninput=()=>{autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr);};
 }
-autoCalcNextTime(tr); updateStatus(tr); applyPermission();
+autoCalcNextTime(tr); updateStatus(tr);
+applyPermission();
 }
 
 function generateUUID(){return 'id-'+Math.random().toString(36).substr(2,9);}
@@ -177,6 +189,7 @@ row.cells[6].querySelector('input').value=formatDateForInput(d);
 
 // -------------------- 添加行 --------------------
 async function addRow(id){
+if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
 const tb=document.getElementById(id).tBodies[0];
 insertRow(tb);
 const tr=tb.rows[tb.rows.length-1];
@@ -188,6 +201,7 @@ body:JSON.stringify({action:'add',sheet:sheetMap[id],values:[...Array(8).map(()=
 
 // -------------------- 保存行 --------------------
 async function saveRowToSheet(row){
+if(currentRole!=='admin') return;
 const tableId=row.closest('table').id;
 const values=[];
 for(let i=0;i<8;i++){
@@ -205,6 +219,7 @@ updateStatus(row);
 
 // -------------------- 删除行 --------------------
 async function deleteRow(btn){
+if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
 const row=btn.closest('tr');
 const tableId=row.closest('table').id;
 await fetch(scriptURL,{
@@ -227,6 +242,7 @@ else{s.textContent='正常';s.classList.add('normal');}
 
 // -------------------- 导入/导出 --------------------
 function exportData(){
+if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
 const data=[...document.querySelectorAll('tbody tr')].map(r=>[...r.cells].slice(0,8).map(td=>{
 const input=td.querySelector('input,select'); return input?input.value:td.textContent;}).concat(r.dataset.id));
 const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
@@ -234,6 +250,7 @@ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.downloa
 }
 
 function importData(e){
+if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
 const file=e.target.files[0]; const reader=new FileReader();
 reader.onload=()=>{
 const data=JSON.parse(reader.result);
