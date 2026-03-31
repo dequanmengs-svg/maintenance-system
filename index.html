@@ -110,21 +110,22 @@ function applyPermission(){
     });
 }
 
-// -------------------- 日期格式优化 --------------------
-function formatDateForInput(v){
-    if(!v) return '';
-    // 如果是对象 {v: …}
-    if(typeof v==='object' && v.v !== undefined) v = v.v;
-    // 如果是数字序列号
-    if(!isNaN(v) && v>0 && v<2958465){
-        const date = new Date((v - 25569) * 86400000);
-        date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+// -------------------- 解析 Google Sheets 日期 --------------------
+function parseSheetDate(value){
+    if(!value) return '';
+    if(typeof value==='object'){
+        if(value.v!==undefined) value=value.v;
+        else if(value.f) value=value.f;
+        else return '';
+    }
+    if(!isNaN(value)){
+        const date = new Date((value-25569)*86400000);
+        date.setMinutes(date.getMinutes()-date.getTimezoneOffset());
         return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     }
-    // ISO 字符串
-    const d = new Date(v);
+    const d=new Date(value);
     if(!isNaN(d)){
-        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
     return '';
@@ -143,7 +144,7 @@ async function fetchSingleSheet(sheetName,tableId){
         const res=await fetch(url);
         const txt=await res.text();
         const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
-        const rows=json.table.rows.map(r=>r.c.map(c=>c?c:{v:''}));
+        const rows=json.table.rows.map(r=>r.c.map(c=>c||{v:''}));
         renderSheetData(rows,tableId);
     }catch(e){console.warn('Sheet 拉取失败：', e);}
 }
@@ -162,17 +163,20 @@ function insertRow(tb,r=[]){
     tr.dataset.id=r[10]?.v||generateUUID();
     for(let i=0;i<10;i++){
         const td=tr.insertCell();
-        const c=r[i]?.v||'';
-        if(i===3){ 
-            td.innerHTML=`<input type="number" value="${c||1}" autocomplete="off">`; 
-        } else if(i===4){ 
-            td.innerHTML=`<select autocomplete="off"><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; 
-            td.querySelector('select').value=c||'月 / Month'; 
-        } else if(i===5||i===6){ 
-            td.innerHTML=`<input type="date" value="${formatDateForInput(c)}" autocomplete="off">`; 
-        } else if(i===9){ 
-            td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`; 
-        } else{ td.contentEditable=true; td.textContent=c; }
+        const c=r[i];
+        if(i===3){
+            td.innerHTML=`<input type="number" value="${c?.v||1}" autocomplete="off">`;
+        } else if(i===4){
+            td.innerHTML=`<select autocomplete="off"><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`;
+            td.querySelector('select').value=c?.v||'月 / Month';
+        } else if(i===5||i===6){
+            td.innerHTML=`<input type="date" value="${parseSheetDate(c)}" autocomplete="off">`;
+        } else if(i===9){
+            td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`;
+        } else{
+            td.contentEditable=true;
+            td.textContent=c?.v||'';
+        }
 
         const inputOrSelect=td.querySelector('input,select');
         if(inputOrSelect){
@@ -196,7 +200,7 @@ function autoCalcNextTime(row){
     if(unit.includes('月')) d.setMonth(d.getMonth()+cycle);
     if(unit.includes('周')) d.setDate(d.getDate()+cycle*7);
     if(unit.includes('天')) d.setDate(d.getDate()+cycle);
-    row.cells[6].querySelector('input').value=formatDateForInput(d);
+    row.cells[6].querySelector('input').value=parseSheetDate(d);
 }
 
 // -------------------- 添加行 --------------------
