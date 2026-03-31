@@ -206,18 +206,16 @@ async function saveRowToSheet(row){
 
     const tableId=row.closest('table').id;
     const values=[];
-
     for(let i=0;i<8;i++){
         const cell=row.cells[i];
         const input=cell.querySelector('input,select');
-        values.push(input ? input.value : cell.textContent);
+        values.push(input?input.value:cell.textContent);
     }
-
     values.push(row.cells[8].textContent||''); // 状态
     values.push(row.dataset.id); // UUID
 
     try{
-        await fetch(scriptURL,{
+        const res=await fetch(scriptURL,{
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
             body: JSON.stringify({
@@ -227,28 +225,73 @@ async function saveRowToSheet(row){
                 values:values
             })
         });
-
-        showToast('保存成功 ✔');
+        const result = await res.json();
+        if(result.success){
+            showToast('保存成功 ✔');
+        }else{
+            showToast('保存失败 ❌ '+(result.error||'未知错误'));
+        }
     }catch(e){
         console.warn('同步 Google Sheet 失败',e);
         showToast('保存失败 ❌');
     }
 }
 
-// -------------------- 新增行 --------------------
 async function addRow(id){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
     const tb=document.getElementById(id).tBodies[0];
-    insertRow(tb,[]);
-    applyPermission();
+    const tr=tb.insertRow();
+    tr.dataset.id=generateUUID();
+
+    for(let i=0;i<10;i++){
+        const td=tr.insertCell();
+        if(i===3) td.innerHTML="<input type='number' value='1'>";
+        else if(i===4) td.innerHTML="<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>";
+        else if(i===5||i===6) td.innerHTML="<input type='date'>";
+        else if(i===9) td.innerHTML="<button onclick='deleteRow(this)'>删除</button>";
+        else td.contentEditable=true;
+    }
+
+    autoCalcNextTime(tr);
+    updateStatus(tr);
+
+    const values=[];
+    for(let i=0;i<8;i++){
+        values.push(tr.cells[i].querySelector('input,select')?.value || tr.cells[i].textContent);
+    }
+    values.push(tr.cells[8].textContent||'');
+    values.push(tr.dataset.id);
+
+    try{
+        const res=await fetch(scriptURL,{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({
+                action:'add',
+                sheet:sheetMap[id],
+                values:values
+            })
+        });
+        const result = await res.json();
+        if(result.success) showToast('新增行成功 ✔');
+        else showToast('新增行失败 ❌ '+(result.error||'未知错误'));
+    }catch(e){
+        console.warn('新增行同步失败',e);
+        showToast('新增行失败 ❌');
+    }
+
+    tr.querySelectorAll('input,select,[contenteditable]').forEach(el=>{
+        el.addEventListener('input',()=>saveRowToSheet(tr));
+        el.addEventListener('change',()=>saveRowToSheet(tr));
+    });
 }
 
-// -------------------- 删除行 --------------------
-async function deleteRow(row){
+async function deleteRow(btn){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
+    const row=btn.closest('tr');
     const tableId=row.closest('table').id;
     try{
-        await fetch(scriptURL,{
+        const res=await fetch(scriptURL,{
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
             body: JSON.stringify({
@@ -257,8 +300,13 @@ async function deleteRow(row){
                 id:row.dataset.id
             })
         });
-        row.remove();
-        showToast('删除成功 ✔');
+        const result=await res.json();
+        if(result.success){
+            row.remove();
+            showToast('删除成功 ✔');
+        }else{
+            showToast('删除失败 ❌ '+(result.error||'未知错误'));
+        }
     }catch(e){
         console.warn('删除行同步失败',e);
         showToast('删除失败 ❌');
