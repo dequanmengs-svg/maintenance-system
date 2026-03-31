@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V38 Online</title>
+<title>Smart Car 焊接管理看板 V38 Enterprise</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
@@ -13,91 +13,209 @@ table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
 th,td{border:1px solid #334155;padding:8px;text-align:center}
 th{background:#334155}
 input,select{width:100%;background:#0f172a;color:white;border:1px solid #475569;padding:4px}
-.normal{background:#16a34a}.warning{background:#eab308;color:black}.danger{background:#dc2626}
+.normal{background:#16a34a}
+.warning{background:#eab308;color:black}
+.danger{background:#dc2626}
 button{margin-top:10px;padding:6px 12px;background:#38bdf8;border:none;border-radius:8px;cursor:pointer}
 </style>
 </head>
 <body>
+
 <div class="header">Smart Car 焊接管理看板 V38</div>
+
 <div class="container">
 <div class="panel">
 <h2>Maintenance</h2>
-<table id="maintainTable"><thead><tr><th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th><th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table>
+<table id="maintainTable">
+<thead>
+<tr>
+<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
+<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 <button onclick="addRow('maintainTable')">新增一行</button>
 </div>
+
 <div class="panel">
 <h2>Inspection</h2>
-<table id="inspectTable"><thead><tr><th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th><th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table>
+<table id="inspectTable">
+<thead>
+<tr>
+<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
+<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 <button onclick="addRow('inspectTable')">新增一行</button>
 </div>
 </div>
+
 <script>
 const sheetID='1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
 const scriptURL='AKfycbw2IzLgR7JQzq-sMfc3JEk1QGRplU3untb_fkgA4RAAugWOt_h6pMhRF_YdfTdfCFqkDg';
-const sheetMap={maintainTable:'Maintenance',inspectTable:'Inspection'};
+
+const sheetMap={
+maintainTable:'Maintenance',
+inspectTable:'Inspection'
+};
 
 function formatDateForInput(v){
- if(!v) return '';
- if(typeof v==='string'&&v.includes('Date(')){
-  const n=v.match(/\d+/g);return `${n[0]}-${String(+n[1]+1).padStart(2,'0')}-${String(n[2]).padStart(2,'0')}`;
- }
- const d=new Date(v); if(isNaN(d)) return '';
- return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+if(!v) return '';
+
+if(typeof v==='string' && v.includes('Date(')){
+const n=v.match(/\d+/g);
+return `${n[0]}-${String(+n[1]+1).padStart(2,'0')}-${String(n[2]).padStart(2,'0')}`;
 }
 
-async function fetchSheetData(){for(const [id,name] of Object.entries(sheetMap)) await fetchSingleSheet(name,id)}
+const d=new Date(v);
+if(isNaN(d)) return '';
+
+return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+async function fetchSheetData(){
+for(const [id,name] of Object.entries(sheetMap)){
+await fetchSingleSheet(name,id);
+}
+}
 
 async function fetchSingleSheet(sheetName,tableId){
- const url=`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${sheetName}&tqx=out:json`;
- const res=await fetch(url); const txt=await res.text();
- const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
- renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
+const url=`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${sheetName}&tqx=out:json`;
+
+const res=await fetch(url);
+const txt=await res.text();
+const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
+
+renderSheetData(
+json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),
+tableId
+);
 }
 
 function renderSheetData(rows,tableId){
- const tb=document.getElementById(tableId).tBodies[0]; tb.innerHTML='';
- rows.forEach(r=>insertRow(tb,r));
+const tb=document.getElementById(tableId).tBodies[0];
+tb.innerHTML='';
+
+rows.forEach(r=>insertRow(tb,r));
 }
 
 function insertRow(tb,r=[]){
- const tr=tb.insertRow();
- for(let i=0;i<10;i++){
-  const td=tr.insertCell(); const c=r[i]||'';
-  if(i===3) td.innerHTML=`<input type='number' value='${c||1}'>`;
-  else if(i===4) td.innerHTML=`<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`;
-  else if(i===5||i===6) td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`;
-  else if(i===9) td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`;
-  else td.contentEditable=i<8, td.textContent=c;
- }
- tr.querySelectorAll('input,select,[contenteditable]').forEach(el=>el.onchange=()=>saveRowToSheet(tr));
- updateStatus(tr);
+const tr=tb.insertRow();
+
+for(let i=0;i<10;i++){
+const td=tr.insertCell();
+const c=r[i]||'';
+
+if(i===3){
+td.innerHTML=`<input type='number' value='${c||1}'>`;
+}
+else if(i===4){
+td.innerHTML=`<select>
+<option>月 / Month</option>
+<option>周 / Week</option>
+<option>天 / Day</option>
+</select>`;
+td.querySelector('select').value=c||'月 / Month';
+}
+else if(i===5||i===6){
+td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`;
+}
+else if(i===9){
+td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`;
+}
+else{
+td.contentEditable=i<8;
+td.textContent=c;
+}
 }
 
-function addRow(id){insertRow(document.getElementById(id).tBodies[0]);}
+tr.querySelectorAll('input,select,[contenteditable]').forEach(el=>{
+el.onchange=()=>saveRowToSheet(tr);
+});
+
+updateStatus(tr);
+}
+
+async function addRow(id){
+const tb=document.getElementById(id).tBodies[0];
+insertRow(tb);
+
+await fetch(scriptURL,{
+method:'POST',
+body:JSON.stringify({
+action:'add',
+sheet:sheetMap[id],
+values:['','','','1','月 / Month','','','','']
+})
+});
+}
 
 async function saveRowToSheet(row){
- const tableId=row.closest('table').id;
- const values=[];
- for(let i=0;i<8;i++){
-  const cell=row.cells[i];
-  const input=cell.querySelector('input,select');
-  values.push(input?input.value:cell.textContent);
- }
- await fetch(scriptURL,{method:'POST',body:JSON.stringify({sheet:sheetMap[tableId],row:row.rowIndex,values})});
- updateStatus(row);
+const tableId=row.closest('table').id;
+const values=[];
+
+for(let i=0;i<8;i++){
+const cell=row.cells[i];
+const input=cell.querySelector('input,select');
+values.push(input ? input.value : cell.textContent);
 }
 
-function deleteRow(btn){btn.closest('tr').remove();}
+await fetch(scriptURL,{
+method:'POST',
+body:JSON.stringify({
+action:'update',
+sheet:sheetMap[tableId],
+row:row.rowIndex,
+values:values
+})
+});
+
+updateStatus(row);
+}
+
+async function deleteRow(btn){
+const row=btn.closest('tr');
+const tableId=row.closest('table').id;
+
+await fetch(scriptURL,{
+method:'POST',
+body:JSON.stringify({
+action:'delete',
+sheet:sheetMap[tableId],
+row:row.rowIndex
+})
+});
+
+row.remove();
+}
 
 function updateStatus(row){
- const next=row.cells[6].querySelector('input')?.value; if(!next) return;
- const diff=(new Date(next)-new Date())/86400000; const s=row.cells[8]; s.className='';
- if(diff<0){s.textContent='超期';s.classList.add('danger');}
- else if(diff<=7){s.textContent='即将到期';s.classList.add('warning');}
- else{s.textContent='正常';s.classList.add('normal');}
+const next=row.cells[6].querySelector('input')?.value;
+if(!next) return;
+
+const diff=(new Date(next)-new Date())/86400000;
+const s=row.cells[8];
+s.className='';
+
+if(diff<0){
+s.textContent='超期';
+s.classList.add('danger');
+}
+else if(diff<=7){
+s.textContent='即将到期';
+s.classList.add('warning');
+}
+else{
+s.textContent='正常';
+s.classList.add('normal');
+}
 }
 
 document.addEventListener('DOMContentLoaded',fetchSheetData);
 </script>
+
 </body>
 </html>
