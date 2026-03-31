@@ -1,334 +1,103 @@
-```html
 <!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V37</title>
+<title>Smart Car 焊接管理看板 V38 Online</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
-.header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px;cursor:text}
+.header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
 .container{display:flex;gap:20px;flex-wrap:wrap}
-.panel{flex:1;background:#1e293b;border-radius:12px;padding:20px;resize:both;overflow:auto;min-width:300px;min-height:300px}
-h2{text-align:center;color:#38bdf8;cursor:text}
+.panel{flex:1;background:#1e293b;border-radius:12px;padding:20px;min-width:300px}
 table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
-th,td{border:1px solid #334155;padding:8px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th,td{border:1px solid #334155;padding:8px;text-align:center}
 th{background:#334155}
 input,select{width:100%;background:#0f172a;color:white;border:1px solid #475569;padding:4px}
-.normal{background:#16a34a}
-.warning{background:#eab308;color:black}
-.danger{background:#dc2626}
-.deleteBtn{opacity:0;transition:opacity 0.3s;font-size:10px;padding:2px 6px;background:#475569;border:none;border-radius:4px;cursor:pointer}
-tr:hover .deleteBtn{opacity:0.8}
+.normal{background:#16a34a}.warning{background:#eab308;color:black}.danger{background:#dc2626}
 button{margin-top:10px;padding:6px 12px;background:#38bdf8;border:none;border-radius:8px;cursor:pointer}
-
-#loginPanel{position:fixed;top:20px;right:20px;width:50px;height:50px;background:#38bdf8;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:all 0.3s;z-index:1000}
-#loginPanel.expanded{width:250px;height:auto;border-radius:12px;padding:10px;flex-direction:column;align-items:flex-start}
-#loginIcon{font-weight:bold;color:#0f172a;font-size:24px}
-#loginContent{display:none;width:100%;flex-direction:column;gap:5px}
-#loginPanel.expanded #loginContent{display:flex}
 </style>
 </head>
 <body>
-
-<div id="loginPanel">
-<div id="loginIcon">👤</div>
-<div id="loginContent" onclick="event.stopPropagation()">
-<label>用户名 / Username: <input type="text" id="username"></label>
-<label>密码 / Password: <input type="password" id="password"></label>
-<button onclick="login()">登录 / Login</button>
-<span id="loginStatus"></span>
-<button onclick="changePassword()" id="changePassBtn" disabled>修改账户</button>
-<button onclick="exportData()" id="exportBtn" disabled>导出数据</button>
-<input type="file" id="importFile" style="display:none" onchange="importData(event)">
-<button onclick="document.getElementById('importFile').click()" id="importBtn" disabled>导入数据</button>
-</div>
-</div>
-
-<div class="header" contenteditable="false">Smart Car 焊接管理看板</div>
-
+<div class="header">Smart Car 焊接管理看板 V38</div>
 <div class="container">
 <div class="panel">
-<h2>焊接保养 / Maintenance</h2>
-<table id="maintainTable">
-<thead>
-<tr>
-<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
-<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-<button onclick="addRow('maintainTable')" disabled>新增一行</button>
+<h2>Maintenance</h2>
+<table id="maintainTable"><thead><tr><th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th><th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table>
+<button onclick="addRow('maintainTable')">新增一行</button>
 </div>
-
 <div class="panel">
-<h2>焊接点检 / Inspection</h2>
-<table id="inspectTable">
-<thead>
-<tr>
-<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
-<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
-</tr>
-</thead>
-</thead>
-<tbody></tbody>
-</table>
-<button onclick="addRow('inspectTable')" disabled>新增一行</button>
+<h2>Inspection</h2>
+<table id="inspectTable"><thead><tr><th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th><th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table>
+<button onclick="addRow('inspectTable')">新增一行</button>
 </div>
 </div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
 <script>
-let loggedIn=false;
-let currentRole=null;
+const sheetID='1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
+const scriptURL='AKfycbw2IzLgR7JQzq-sMfc3JEk1QGRplU3untb_fkgA4RAAugWOt_h6pMhRF_YdfTdfCFqkDg';
+const sheetMap={maintainTable:'Maintenance',inspectTable:'Inspection'};
 
-if(!localStorage.getItem('dashboardUsers')){
-localStorage.setItem('dashboardUsers',JSON.stringify([
-{username:'admin',password:'123',role:'admin'},
-{username:'guest',password:'guest',role:'readonly'}
-]));
+function formatDateForInput(v){
+ if(!v) return '';
+ if(typeof v==='string'&&v.includes('Date(')){
+  const n=v.match(/\d+/g);return `${n[0]}-${String(+n[1]+1).padStart(2,'0')}-${String(n[2]).padStart(2,'0')}`;
+ }
+ const d=new Date(v); if(isNaN(d)) return '';
+ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-document.getElementById('loginPanel').addEventListener('click',function(){
-this.classList.toggle('expanded');
-});
-
-function login(){
-const user=document.getElementById('username').value.trim();
-const pass=document.getElementById('password').value.trim();
-const users=JSON.parse(localStorage.getItem('dashboardUsers'));
-const acc=users.find(u=>u.username===user && u.password===pass);
-
-if(acc){
-loggedIn=true;
-currentRole=acc.role;
-document.getElementById('loginStatus').textContent='已登录('+currentRole+')';
-applyPermissions();
-loadData(false);
-fetchSheetData();
-}else{
-alert('用户名或密码错误');
-}
-}
-
-function applyPermissions(){
-const isAdmin=currentRole==='admin';
-document.querySelectorAll('#changePassBtn,#exportBtn,#importBtn').forEach(btn=>btn.disabled=!isAdmin);
-document.querySelectorAll('button').forEach(btn=>{
-if(btn.textContent.includes('新增')) btn.disabled=!isAdmin;
-});
-}
-
-function saveData(){
-if(!loggedIn || currentRole==='readonly') return;
-localStorage.setItem('maintainData',document.getElementById('maintainTable').outerHTML);
-localStorage.setItem('inspectData',document.getElementById('inspectTable').outerHTML);
-}
-
-function loadData(reset=true){
-addRowListeners();
-}
-
-function addRowListeners(){
-document.querySelectorAll('input,select').forEach(el=>{
-el.onchange=()=>{
-calculateNext(el);
-saveData();
-};
-});
-}
-
-function calculateNext(el){
-const row=el.parentElement.parentElement;
-const cycle=row.cells[3].querySelector('input')?.value;
-const unit=row.cells[4].querySelector('select')?.value;
-const last=row.cells[5].querySelector('input')?.value;
-if(!last||!cycle) return;
-
-let d=new Date(last);
-
-if(unit.includes('月')) d.setMonth(d.getMonth()+parseInt(cycle));
-else if(unit.includes('周')) d.setDate(d.getDate()+parseInt(cycle)*7);
-else d.setDate(d.getDate()+parseInt(cycle));
-
-row.cells[6].querySelector('input').value=d.toISOString().split('T')[0];
-updateStatus(row);
-}
-
-function updateStatus(row){
-const next=row.cells[6].querySelector('input')?.value;
-const status=row.cells[8];
-if(!next) return;
-
-const today=new Date();
-const nextDate=new Date(next);
-const diff=(nextDate-today)/(1000*60*60*24);
-
-status.className='';
-
-if(diff<0){
-status.textContent='超期';
-status.classList.add('danger');
-}else if(diff<=7){
-status.textContent='即将到期';
-status.classList.add('warning');
-}else{
-status.textContent='正常';
-status.classList.add('normal');
-}
-}
-
-function addRow(tableId){
-const table=document.getElementById(tableId).tBodies[0];
-const row=table.insertRow();
-
-row.innerHTML=`
-<td contenteditable='true'></td>
-<td contenteditable='true'></td>
-<td contenteditable='true'></td>
-<td><input type='number' value='1'></td>
-<td>
-<select>
-<option>月 / Month</option>
-<option>周 / Week</option>
-<option>天 / Day</option>
-</select>
-</td>
-<td><input type='date'></td>
-<td><input type='date'></td>
-<td contenteditable='true'></td>
-<td></td>
-<td><button class='deleteBtn' onclick='deleteRow(this)'>删除</button></td>
-`;
-
-addRowListeners();
-saveData();
-}
-
-function deleteRow(btn){
-btn.parentElement.parentElement.remove();
-saveData();
-}
-
-function changePassword(){}
-function exportData(){}
-function importData(){}
-
-```javascript id="d8p4mk"
-// ---------- Google Sheet ----------
-const sheetID="1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY";
-
-const sheetConfigs=[
-{name:"Maintenance",tableId:"maintainTable"},
-{name:"Inspection",tableId:"inspectTable"}
-];
-
-function formatDateForInput(value){
-if(!value) return '';
-
-if(typeof value==='number'){
-const date=new Date((value-25569)*86400*1000);
-const y=date.getFullYear();
-const m=('0'+(date.getMonth()+1)).slice(-2);
-const d=('0'+date.getDate()).slice(-2);
-return `${y}-${m}-${d}`;
-}
-
-if(typeof value==='string'){
-if(value.includes('Date(')){
-const nums=value.match(/\d+/g);
-if(nums && nums.length>=3){
-const y=nums[0];
-const m=('0'+(parseInt(nums[1])+1)).slice(-2);
-const d=('0'+nums[2]).slice(-2);
-return `${y}-${m}-${d}`;
-}
-}
-return value.trim().split('T')[0];
-}
-
-return '';
-}
+async function fetchSheetData(){for(const [id,name] of Object.entries(sheetMap)) await fetchSingleSheet(name,id)}
 
 async function fetchSingleSheet(sheetName,tableId){
-try{
-const url=`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
-const res=await fetch(url);
-const text=await res.text();
-const jsonText=text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1];
-const json=JSON.parse(jsonText);
-
-const rows=json.table.rows.map(r=>
-r.c.map(cell=>{
-if(!cell) return '';
-if(cell.f) return cell.f;
-return cell.v;
-})
-);
-
-renderSheetData(rows,tableId);
-
-}catch(err){
-console.error(err);
-}
-}
-
-async function fetchSheetData(){
-for(const config of sheetConfigs){
-await fetchSingleSheet(config.name,config.tableId);
-}
+ const url=`https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${sheetName}&tqx=out:json`;
+ const res=await fetch(url); const txt=await res.text();
+ const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
+ renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c.v:'')),tableId);
 }
 
 function renderSheetData(rows,tableId){
-const table=document.getElementById(tableId).tBodies[0];
-table.innerHTML='';
-
-rows.forEach(rowData=>{
-const tr=table.insertRow();
-
-for(let j=0;j<10;j++){
-const td=tr.insertCell();
-const cell=rowData[j]||'';
-
-if(j===3){
-td.innerHTML=`<input type='number' value='${cell}'>`;
-}
-else if(j===4){
-td.innerHTML=`<select>
-<option>月 / Month</option>
-<option>周 / Week</option>
-<option>天 / Day</option>
-</select>`;
-td.querySelector('select').value=cell||'月 / Month';
-}
-else if(j===5||j===6){
-td.innerHTML=`<input type='date' value='${formatDateForInput(cell)}'>`;
-}
-else if(j===9){
-td.innerHTML=`<button class='deleteBtn' onclick='deleteRow(this)'>删除</button>`;
-}
-else{
-td.textContent=cell;
-}
+ const tb=document.getElementById(tableId).tBodies[0]; tb.innerHTML='';
+ rows.forEach(r=>insertRow(tb,r));
 }
 
-if(tr.cells[5]?.querySelector('input')){
-calculateNext(tr.cells[5].querySelector('input'));
-updateStatus(tr);
+function insertRow(tb,r=[]){
+ const tr=tb.insertRow();
+ for(let i=0;i<10;i++){
+  const td=tr.insertCell(); const c=r[i]||'';
+  if(i===3) td.innerHTML=`<input type='number' value='${c||1}'>`;
+  else if(i===4) td.innerHTML=`<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`;
+  else if(i===5||i===6) td.innerHTML=`<input type='date' value='${formatDateForInput(c)}'>`;
+  else if(i===9) td.innerHTML=`<button onclick='deleteRow(this)'>删除</button>`;
+  else td.contentEditable=i<8, td.textContent=c;
+ }
+ tr.querySelectorAll('input,select,[contenteditable]').forEach(el=>el.onchange=()=>saveRowToSheet(tr));
+ updateStatus(tr);
 }
-});
 
-addRowListeners();
+function addRow(id){insertRow(document.getElementById(id).tBodies[0]);}
+
+async function saveRowToSheet(row){
+ const tableId=row.closest('table').id;
+ const values=[];
+ for(let i=0;i<8;i++){
+  const cell=row.cells[i];
+  const input=cell.querySelector('input,select');
+  values.push(input?input.value:cell.textContent);
+ }
+ await fetch(scriptURL,{method:'POST',body:JSON.stringify({sheet:sheetMap[tableId],row:row.rowIndex,values})});
+ updateStatus(row);
 }
-```
 
+function deleteRow(btn){btn.closest('tr').remove();}
 
-document.addEventListener('DOMContentLoaded',()=>{
-loadData(false);
-});
+function updateStatus(row){
+ const next=row.cells[6].querySelector('input')?.value; if(!next) return;
+ const diff=(new Date(next)-new Date())/86400000; const s=row.cells[8]; s.className='';
+ if(diff<0){s.textContent='超期';s.classList.add('danger');}
+ else if(diff<=7){s.textContent='即将到期';s.classList.add('warning');}
+ else{s.textContent='正常';s.classList.add('normal');}
+}
+
+document.addEventListener('DOMContentLoaded',fetchSheetData);
 </script>
 </body>
 </html>
-```
