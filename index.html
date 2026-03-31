@@ -216,6 +216,7 @@ function changePassword(){}
 function exportData(){}
 function importData(){}
 
+```javascript id="d8p4mk"
 // ---------- Google Sheet ----------
 const sheetID="1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY";
 
@@ -235,7 +236,20 @@ const d=('0'+date.getDate()).slice(-2);
 return `${y}-${m}-${d}`;
 }
 
-return String(value).trim().split('T')[0];
+if(typeof value==='string'){
+if(value.includes('Date(')){
+const nums=value.match(/\d+/g);
+if(nums && nums.length>=3){
+const y=nums[0];
+const m=('0'+(parseInt(nums[1])+1)).slice(-2);
+const d=('0'+nums[2]).slice(-2);
+return `${y}-${m}-${d}`;
+}
+}
+return value.trim().split('T')[0];
+}
+
+return '';
 }
 
 async function fetchSingleSheet(sheetName,tableId){
@@ -246,7 +260,14 @@ const text=await res.text();
 const jsonText=text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1];
 const json=JSON.parse(jsonText);
 
-const rows=json.table.rows.map(r=>r.c.map(cell=>cell?cell.v:""));
+const rows=json.table.rows.map(r=>
+r.c.map(cell=>{
+if(!cell) return '';
+if(cell.f) return cell.f;
+return cell.v;
+})
+);
+
 renderSheetData(rows,tableId);
 
 }catch(err){
@@ -301,6 +322,8 @@ updateStatus(tr);
 
 addRowListeners();
 }
+```
+
 
 document.addEventListener('DOMContentLoaded',()=>{
 loadData(false);
