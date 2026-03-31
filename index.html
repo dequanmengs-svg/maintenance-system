@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V39 企业终版（修复版）</title>
+<title>Smart Car 焊接管理看板 V40 企业稳定版</title>
 <style>
 body{margin:0;font-family:Arial;background:#0f172a;color:white;padding:20px}
 .header{text-align:center;font-size:30px;font-weight:bold;margin-bottom:20px}
@@ -69,9 +69,9 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 
 <script>
 const sheetID='1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
-const scriptURL='https://script.google.com/macros/s/AKfycbw2IzLgR7JQzq-sMfc3JEk1QGRplU3untb_fkgA4RAAugWOt_h6pMhRF_YdfTdfCFqkDg/exec';
+const scriptURL='【请替换为你的 Apps Script V40 URL】';
 let currentRole=null;
-const sheetMap={maintainTable:'Maintenance',inspectTable:'Inspection'};
+const sheetMap={maintainTable:'Maintenance', inspectTable:'Inspection'};
 let fullScreen=false;
 
 // -------------------- 登录 --------------------
@@ -85,7 +85,6 @@ function login(){
     localStorage.setItem('currentRole', currentRole);
     document.getElementById('roleText').innerText=currentRole;
     applyPermission();
-
     fetchSheetData().catch(err=>console.warn('拉取 Google Sheet 失败：', err));
     showToast('登录成功 ✔');
 }
@@ -110,7 +109,7 @@ function applyPermission(){
     });
 }
 
-// -------------------- 日期格式 --------------------
+// -------------------- 日期 --------------------
 function formatDateForInput(v){
     if(!v) return '';
     if(typeof v==='string'&&v.includes('Date(')){
@@ -160,16 +159,13 @@ function insertRow(tb,r=[]){
     for(let i=0;i<10;i++){
         const td=tr.insertCell();
         const c=r[i]||{v:''};
-        if(i===3){ td.innerHTML=`<input type="number" value="${c.v||1}" autocomplete="off">`; }
+        if(i===3){ td.innerHTML=`<input type="number" value="${c.v||1}">`; }
         else if(i===4){ 
-            td.innerHTML=`<select autocomplete="off"><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; 
+            td.innerHTML=`<select><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; 
             td.querySelector('select').value=c.v||'月 / Month'; 
         }
-        else if(i===5||i===6){ td.innerHTML=`<input type="date" value="${formatDateForInput(c.v)}" autocomplete="off">`; }
-        else if(i===9){ 
-            td.innerHTML=`<button type="button">删除</button>`; 
-            td.querySelector('button').addEventListener('click',()=>deleteRow(tr));
-        }
+        else if(i===5||i===6){ td.innerHTML=`<input type="date" value="${formatDateForInput(c.v)}">`; }
+        else if(i===9){ td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`; }
         else{ td.contentEditable=true; td.textContent=c.v; }
 
         const inputOrSelect=td.querySelector('input,select');
@@ -198,7 +194,7 @@ function autoCalcNextTime(row){
     row.cells[6].querySelector('input').value=formatDateForInput(d);
 }
 
-// -------------------- Google Sheet 同步 --------------------
+// -------------------- 保存 --------------------
 async function saveRowToSheet(row){
     if(currentRole!=='admin') return;
 
@@ -211,38 +207,30 @@ async function saveRowToSheet(row){
         const input=cell.querySelector('input,select');
         values.push(input?input.value:cell.textContent);
     }
-    values.push(row.cells[8].textContent||''); // 状态
-    values.push(row.dataset.id); // UUID
+    values.push(row.cells[8].textContent||''); 
+    values.push(row.dataset.id); 
 
     try{
-        const res=await fetch(scriptURL,{
+        const res = await fetch(scriptURL,{
             method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({
-                action:'update',
-                sheet:sheetMap[tableId],
-                id:row.dataset.id,
-                values:values
-            })
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({action:'update', sheet:sheetMap[tableId], id:row.dataset.id, values})
         });
         const result = await res.json();
-        if(result.success){
-            showToast('保存成功 ✔');
-        }else{
-            showToast('保存失败 ❌ '+(result.error||'未知错误'));
-        }
+        if(result.success) showToast('保存成功 ✔');
+        else showToast('保存失败 ❌ '+(result.error||'未知错误'));
     }catch(e){
-        console.warn('同步 Google Sheet 失败',e);
+        console.warn('保存失败', e);
         showToast('保存失败 ❌');
     }
 }
 
+// -------------------- 新增行 --------------------
 async function addRow(id){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
     const tb=document.getElementById(id).tBodies[0];
     const tr=tb.insertRow();
     tr.dataset.id=generateUUID();
-
     for(let i=0;i<10;i++){
         const td=tr.insertCell();
         if(i===3) td.innerHTML="<input type='number' value='1'>";
@@ -251,7 +239,6 @@ async function addRow(id){
         else if(i===9) td.innerHTML="<button onclick='deleteRow(this)'>删除</button>";
         else td.contentEditable=true;
     }
-
     autoCalcNextTime(tr);
     updateStatus(tr);
 
@@ -263,20 +250,16 @@ async function addRow(id){
     values.push(tr.dataset.id);
 
     try{
-        const res=await fetch(scriptURL,{
+        const res = await fetch(scriptURL,{
             method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({
-                action:'add',
-                sheet:sheetMap[id],
-                values:values
-            })
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({action:'add', sheet:sheetMap[id], values})
         });
         const result = await res.json();
         if(result.success) showToast('新增行成功 ✔');
         else showToast('新增行失败 ❌ '+(result.error||'未知错误'));
     }catch(e){
-        console.warn('新增行同步失败',e);
+        console.warn('新增行失败', e);
         showToast('新增行失败 ❌');
     }
 
@@ -286,29 +269,24 @@ async function addRow(id){
     });
 }
 
+// -------------------- 删除行 --------------------
 async function deleteRow(btn){
     if(currentRole!=='admin'){alert('仅 admin 可操作'); return;}
     const row=btn.closest('tr');
     const tableId=row.closest('table').id;
     try{
-        const res=await fetch(scriptURL,{
+        const res = await fetch(scriptURL,{
             method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({
-                action:'delete',
-                sheet:sheetMap[tableId],
-                id:row.dataset.id
-            })
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({action:'delete', sheet:sheetMap[tableId], id:row.dataset.id})
         });
         const result=await res.json();
         if(result.success){
             row.remove();
             showToast('删除成功 ✔');
-        }else{
-            showToast('删除失败 ❌ '+(result.error||'未知错误'));
-        }
+        } else showToast('删除失败 ❌ '+(result.error||'未知错误'));
     }catch(e){
-        console.warn('删除行同步失败',e);
+        console.warn('删除失败', e);
         showToast('删除失败 ❌');
     }
 }
@@ -337,12 +315,8 @@ function importData(e){
     const file=e.target.files[0]; const reader=new FileReader();
     reader.onload=()=>{
         const data=JSON.parse(reader.result);
-        ['maintainTable','inspectTable'].forEach(id=>document.getElementById(id).tBodies[0].innerHTML='');
-        data.forEach(r=>{
-            if(r[0] && r[0].toLowerCase().includes('maintain')) insertRow(document.getElementById('maintainTable').tBodies[0], r);
-            else insertRow(document.getElementById('inspectTable').tBodies[0], r);
-        });
-        applyPermission();
+        document.querySelectorAll('tbody').forEach(tb=>tb.innerHTML='');
+        data.forEach(r=>insertRow(document.getElementById('maintainTable').tBodies[0],r));
     };
     reader.readAsText(file);
 }
@@ -358,7 +332,7 @@ function toggleFullScreen(){
 // -------------------- 自动刷新 --------------------
 setInterval(()=>{ if(currentRole) fetchSheetData().catch(()=>{}); },60000);
 
-// -------------------- 登录/保存提示 --------------------
+// -------------------- 提示 --------------------
 function showToast(msg){
     const toast=document.createElement('div');
     toast.textContent=msg;
