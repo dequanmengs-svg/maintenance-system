@@ -156,7 +156,7 @@ function renderSheetData(rows,tableId){
 // -------------------- 插入行 --------------------
 function insertRow(tb,r=[]){
     const tr=tb.insertRow();
-    tr.dataset.id=r[10]?.v||generateUUID();
+    tr.dataset.id=r[9]?.v||generateUUID();
     for(let i=0;i<10;i++){
         const td=tr.insertCell();
         const c=r[i]||{v:''};
@@ -198,14 +198,18 @@ function autoCalcNextTime(row){
 // -------------------- Google Sheet 同步 --------------------
 async function saveRowToSheet(row){
     if(currentRole!=='admin') return;
+
+    updateStatus(row);
+
     const tableId=row.closest('table').id;
     const values=[];
+
     for(let i=0;i<8;i++){
         const cell=row.cells[i];
         const input=cell.querySelector('input,select');
-        values.push(input?input.value:cell.textContent);
+        values.push(input ? input.value : cell.textContent);
     }
-    values.push(row.cells[7].textContent||''); // 备注
+
     values.push(row.cells[8].textContent||''); // 状态
     values.push(row.dataset.id); // UUID
 
@@ -220,7 +224,7 @@ async function saveRowToSheet(row){
                 values:values
             })
         });
-        updateStatus(row);
+
         showToast('保存成功 ✔');
     }catch(e){
         console.warn('同步 Google Sheet 失败',e);
