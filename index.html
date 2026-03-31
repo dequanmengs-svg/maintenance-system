@@ -88,7 +88,6 @@ function login(){
     document.getElementById('roleText').innerText=currentRole;
     applyPermission();
 
-    // 获取 Google Sheet 数据
     fetchSheetData().catch(err=>console.warn('拉取 Google Sheet 失败：', err));
 }
 
@@ -112,10 +111,16 @@ function applyPermission(){
     });
 }
 
-// -------------------- 日期格式 --------------------
+// -------------------- 日期格式优化 --------------------
 function formatDateForInput(v){
     if(!v) return '';
-    const d=new Date(v);
+    if(typeof v==='object' && v.v!==undefined) v = v.v;
+    if(!isNaN(v) && v>0){
+        // Google Sheets 日期序列号 -> JS 日期
+        const date = new Date((v-25569)*86400000);
+        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    }
+    const d = new Date(v);
     if(isNaN(d)) return '';
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
