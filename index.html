@@ -18,6 +18,13 @@ input,select{width:100%;background:#0f172a;color:white;border:1px solid #475569;
 .warning{background:#eab308;color:black}
 .danger{background:#dc2626}
 button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:8px;cursor:pointer}
+
+/* 退出大屏模式按钮 */
+#exitFullScreenBtn{
+position:fixed;top:10px;right:10px;z-index:1000;
+padding:5px 10px;background:#dc2626;color:white;
+border:none;border-radius:6px;display:none;cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -35,6 +42,9 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 <input type="file" onchange="importData(event)">
 <button onclick="toggleFullScreen()">大屏模式</button>
 </div>
+
+<!-- 退出大屏模式按钮 -->
+<button id="exitFullScreenBtn" onclick="toggleFullScreen()">退出大屏模式</button>
 
 <div class="container">
 <div class="panel">
@@ -71,6 +81,7 @@ const sheetID='1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
 const scriptURL='AKfycbw2IzLgR7JQzq-sMfc3JEk1QGRplU3untb_fkgA4RAAugWOt_h6pMhRF_YdfTdfCFqkDg';
 let currentRole='guest';
 const sheetMap={maintainTable:'Maintenance',inspectTable:'Inspection'};
+let fullScreen=false;
 
 // -------------------- 登录 --------------------
 function login(){
@@ -235,14 +246,14 @@ reader.readAsText(file);
 }
 
 // -------------------- 大屏模式 --------------------
-let fullScreen=false;
 function toggleFullScreen(){
 fullScreen=!fullScreen;
-document.getElementById('loginBox').style.display=fullScreen?'none':'block';
+document.getElementById('loginBox').style.display = fullScreen ? 'none' : 'block';
+document.getElementById('exitFullScreenBtn').style.display = fullScreen ? 'block' : 'none';
 }
 
 // -------------------- 实时刷新 --------------------
-setInterval(fetchSheetData,600000); // 每十分钟刷新一次
+setInterval(fetchSheetData,60000); // 每分钟刷新一次
 
 document.addEventListener('DOMContentLoaded',fetchSheetData);
 </script>
