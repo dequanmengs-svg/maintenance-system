@@ -26,10 +26,8 @@ button{margin:5px;padding:6px 12px;background:#38bdf8;border:none;border-radius:
 <div class="header">Smart Car 焊接管理看板</div>
 
 <div class="login-box" id="loginBox">
-账号:
-<input id="username" name="username" autocomplete="username" style="width:120px">
-密码:
-<input id="password" type="password" name="password" autocomplete="current-password" style="width:120px">
+账号:<input id="username" style="width:120px" autocomplete="username">
+密码:<input id="password" type="password" style="width:120px" autocomplete="current-password">
 <button type="button" onclick="login()">登录</button>
 <span id="roleText">未登录</span>
 <button type="button" onclick="exportData()" id="exportBtn">导出</button>
@@ -87,6 +85,7 @@ function login(){
     localStorage.setItem('currentRole', currentRole);
     document.getElementById('roleText').innerText=currentRole;
     applyPermission();
+
     fetchSheetData().catch(err=>console.warn('拉取 Google Sheet 失败：', err));
 }
 
@@ -110,25 +109,23 @@ function applyPermission(){
     });
 }
 
-// -------------------- 解析 Google Sheets 日期 --------------------
-function parseSheetDate(value){
-    if(!value) return '';
-    if(typeof value==='object'){
-        if(value.v!==undefined) value=value.v;
-        else if(value.f) value=value.f;
-        else return '';
+// -------------------- 日期格式 --------------------
+function formatDateForInput(v){
+    if(!v) return '';
+    if(typeof v==='string'&&v.includes('Date(')){
+        const n=v.match(/\d+/g);
+        return `${n[0]}-${String(+n[1]+1).padStart(2,'0')}-${String(n[2]).padStart(2,'0')}`;
     }
-    if(!isNaN(value)){
-        const date = new Date((value-25569)*86400000);
-        date.setMinutes(date.getMinutes()-date.getTimezoneOffset());
-        return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-    }
-    const d=new Date(value);
-    if(!isNaN(d)){
+    if(typeof v==='number'){
+        // Google Sheets 序列号转 JS Date
+        const d=new Date((v-25569)*86400000);
         d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
-    return '';
+    const d=new Date(v);
+    if(isNaN(d)) return '';
+    d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // -------------------- Google Sheet --------------------
@@ -144,8 +141,7 @@ async function fetchSingleSheet(sheetName,tableId){
         const res=await fetch(url);
         const txt=await res.text();
         const json=JSON.parse(txt.match(/setResponse\((.*)\)/s)[1]);
-        const rows=json.table.rows.map(r=>r.c.map(c=>c||{v:''}));
-        renderSheetData(rows,tableId);
+        renderSheetData(json.table.rows.map(r=>r.c.map(c=>c?c:{v:''})),tableId);
     }catch(e){console.warn('Sheet 拉取失败：', e);}
 }
 
@@ -163,20 +159,15 @@ function insertRow(tb,r=[]){
     tr.dataset.id=r[10]?.v||generateUUID();
     for(let i=0;i<10;i++){
         const td=tr.insertCell();
-        const c=r[i];
-        if(i===3){
-            td.innerHTML=`<input type="number" value="${c?.v||1}" autocomplete="off">`;
-        } else if(i===4){
-            td.innerHTML=`<select autocomplete="off"><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`;
-            td.querySelector('select').value=c?.v||'月 / Month';
-        } else if(i===5||i===6){
-            td.innerHTML=`<input type="date" value="${parseSheetDate(c)}" autocomplete="off">`;
-        } else if(i===9){
-            td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`;
-        } else{
-            td.contentEditable=true;
-            td.textContent=c?.v||'';
+        const c=r[i]||{v:''};
+        if(i===3){ td.innerHTML=`<input type="number" value="${c.v||1}" autocomplete="off">`; }
+        else if(i===4){ 
+            td.innerHTML=`<select autocomplete="off"><option>月 / Month</option><option>周 / Week</option><option>天 / Day</option></select>`; 
+            td.querySelector('select').value=c.v||'月 / Month'; 
         }
+        else if(i===5||i===6){ td.innerHTML=`<input type="date" value="${formatDateForInput(c.v)}" autocomplete="off">`; }
+        else if(i===9){ td.innerHTML=`<button type="button" onclick="deleteRow(this)">删除</button>`; }
+        else{ td.contentEditable=true; td.textContent=c.v; }
 
         const inputOrSelect=td.querySelector('input,select');
         if(inputOrSelect){
@@ -184,7 +175,8 @@ function insertRow(tb,r=[]){
             inputOrSelect.addEventListener('change',()=>{ autoCalcNextTime(tr); if(currentRole==='admin') saveRowToSheet(tr); });
         }
     }
-    autoCalcNextTime(tr); updateStatus(tr);
+    autoCalcNextTime(tr);
+    updateStatus(tr);
 }
 
 // -------------------- UUID --------------------
@@ -200,7 +192,7 @@ function autoCalcNextTime(row){
     if(unit.includes('月')) d.setMonth(d.getMonth()+cycle);
     if(unit.includes('周')) d.setDate(d.getDate()+cycle*7);
     if(unit.includes('天')) d.setDate(d.getDate()+cycle);
-    row.cells[6].querySelector('input').value=parseSheetDate(d);
+    row.cells[6].querySelector('input').value=formatDateForInput(d);
 }
 
 // -------------------- 添加行 --------------------
@@ -287,11 +279,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         applyPermission();
         fetchSheetData().catch(()=>{});
     }
-    if(storedFS){ 
-        fullScreen = true; 
-        document.getElementById('loginBox').style.display = 'none';
-        document.getElementById('exitFullScreenBtn').style.display = 'block';
-    }
+    if(storedFS){ toggleFullScreen(); }
 });
 </script>
 </body>
