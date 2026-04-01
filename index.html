@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car V41 看板（PC端）</title>
+<title>Smart Car V40 看板（PC端）</title>
 <style>
-  body { font-family: Arial; background: #f0f0f0; margin: 0; padding: 20px; }
-  h1,h2 { margin: 10px 0; }
+  body { font-family: Arial; background: #0f172a; color: white; margin: 0; padding: 20px; }
+  h1,h2 { margin: 10px 0; color: #f0f0f0; }
   input, button { padding: 5px 10px; margin: 5px; }
-  table { border-collapse: collapse; width: 100%; margin-top: 20px; background: white; }
-  th, td { border: 1px solid #999; padding: 8px; text-align: center; }
-  th { background: #333; color: white; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; background: #1e293b; color: white; }
+  th, td { border: 1px solid #334155; padding: 8px; text-align: center; }
+  th { background: #334155; }
   .hidden { display: none; }
   #loginSection, #actionSection { margin-bottom: 20px; }
+  tr.selected { background: #0ea5e9; }
 </style>
 </head>
 <body>
 
-<h1>Smart Car V41 PC端看板</h1>
+<h1>Smart Car V40 PC端看板</h1>
 
-<!-- 登录 -->
 <div id="loginSection">
   <h2>登录</h2>
   <input id="username" placeholder="用户名">
@@ -28,7 +28,6 @@
   <p id="loginResult"></p>
 </div>
 
-<!-- 操作 -->
 <div id="actionSection" class="hidden">
   <h2>操作</h2>
   <button onclick="addRow()">新增行</button>
@@ -37,7 +36,6 @@
   <p id="actionResult"></p>
 </div>
 
-<!-- 数据表 -->
 <h2>Sheet 数据</h2>
 <table id="dataTable">
   <thead>
@@ -47,9 +45,9 @@
 </table>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyMZNe2iKWLew9Y36P30R6yP3yPKgbeciCYFsxQY6nXsaWiLG0NWDxgGDY00x20Loxdpg/exec"; // 替换为你的 Apps Script /exec URL
+const WEB_APP_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"; // 替换为你的 Apps Script URL
 let sheetData = [];
-let selectedRowId = null;
+let selectedRowIndex = null;
 let role = null;
 
 // -------------------- 登录 --------------------
@@ -109,7 +107,7 @@ function renderTable() {
   if (!sheetData.length) return;
 
   // 表头
-  sheetData[0].forEach((col, idx) => {
+  sheetData[0].forEach(col => {
     const th = document.createElement('th');
     th.textContent = col;
     tableHeader.appendChild(th);
@@ -119,8 +117,8 @@ function renderTable() {
   for (let i = 1; i < sheetData.length; i++) {
     const row = sheetData[i];
     const tr = document.createElement('tr');
-    tr.dataset.id = row[9]; // 第10列 UUID
-    tr.onclick = () => selectRow(tr.dataset.id);
+    tr.dataset.index = i;
+    tr.onclick = () => selectRow(i);
     row.forEach(cell => {
       const td = document.createElement('td');
       td.textContent = cell;
@@ -131,10 +129,10 @@ function renderTable() {
 }
 
 // -------------------- 选中行 --------------------
-function selectRow(id) {
-  selectedRowId = id;
+function selectRow(index) {
+  selectedRowIndex = index;
   Array.from(document.querySelectorAll('#tableBody tr')).forEach(tr => {
-    tr.style.background = tr.dataset.id === id ? '#d0f0d0' : '';
+    tr.classList.toggle('selected', tr.dataset.index == index);
   });
 }
 
@@ -142,7 +140,6 @@ function selectRow(id) {
 async function addRow() {
   if (!role) return alert('请先登录');
   const values = prompt("输入新增行数据，用逗号分隔").split(",");
-  values.push(`uuid-${Date.now()}`); // 生成UUID
   try {
     const res = await fetch(WEB_APP_URL, {
       method: 'POST',
@@ -151,8 +148,7 @@ async function addRow() {
     });
     const data = await res.json();
     if (data.success) {
-      sheetData.push(values);
-      renderTable();
+      fetchSheetData();
       document.getElementById('actionResult').textContent = '新增成功';
     } else {
       document.getElementById('actionResult').textContent = `新增失败: ${data.error}`;
@@ -165,14 +161,13 @@ async function addRow() {
 // -------------------- 更新行 --------------------
 async function updateRow() {
   if (!role) return alert('请先登录');
-  if (!selectedRowId) return alert('请先选择要更新的行');
+  if (selectedRowIndex === null) return alert('请选择要更新的行');
   const values = prompt("输入更新行数据，用逗号分隔").split(",");
-  values.push(selectedRowId); // 保持UUID列
   try {
     const res = await fetch(WEB_APP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'update', sheet: 'Sheet1', id: selectedRowId, values })
+      body: JSON.stringify({ action: 'update', sheet: 'Sheet1', id: sheetData[selectedRowIndex][9], values })
     });
     const data = await res.json();
     if (data.success) {
@@ -189,20 +184,19 @@ async function updateRow() {
 // -------------------- 删除行 --------------------
 async function deleteRow() {
   if (!role) return alert('请先登录');
-  if (!selectedRowId) return alert('请先选择要删除的行');
+  if (selectedRowIndex === null) return alert('请选择要删除的行');
   if (!confirm('确认删除选中行吗？')) return;
   try {
     const res = await fetch(WEB_APP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', sheet: 'Sheet1', id: selectedRowId })
+      body: JSON.stringify({ action: 'delete', sheet: 'Sheet1', id: sheetData[selectedRowIndex][9] })
     });
     const data = await res.json();
     if (data.success) {
-      sheetData = sheetData.filter(row => row[9] !== selectedRowId);
-      renderTable();
+      fetchSheetData();
       document.getElementById('actionResult').textContent = '删除成功';
-      selectedRowId = null;
+      selectedRowIndex = null;
     } else {
       document.getElementById('actionResult').textContent = `删除失败: ${data.error}`;
     }
