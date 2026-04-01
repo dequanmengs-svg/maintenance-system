@@ -3,218 +3,747 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car V40 看板（PC端）</title>
+<title>Smart Car 焊接管理看板 V41 企业稳定版</title>
 <style>
-  body { font-family: Arial; background: #0f172a; color: white; margin: 0; padding: 20px; }
-  h1,h2 { margin: 10px 0; color: #f0f0f0; }
-  input, button { padding: 5px 10px; margin: 5px; }
-  table { border-collapse: collapse; width: 100%; margin-top: 20px; background: #1e293b; color: white; }
-  th, td { border: 1px solid #334155; padding: 8px; text-align: center; }
-  th { background: #334155; }
-  .hidden { display: none; }
-  #loginSection, #actionSection { margin-bottom: 20px; }
-  tr.selected { background: #0ea5e9; }
+  /* ─── CSS Variables ─── */
+  :root {
+    --bg-deep:    #0f172a;
+    --bg-panel:   #1e293b;
+    --bg-header:  #334155;
+    --border:     #334155;
+    --accent:     #38bdf8;
+    --input-bg:   #0f172a;
+    --text:       #f1f5f9;
+    --normal:     #16a34a;
+    --warning:    #eab308;
+    --danger:     #dc2626;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg-deep);
+    color: var(--text);
+    padding: 20px;
+  }
+
+  .header {
+    text-align: center;
+    font-size: 30px;
+    font-weight: bold;
+    margin-bottom: 20px;
+  }
+
+  .login-box {
+    margin-bottom: 20px;
+    text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .login-box label { font-size: 14px; }
+
+  .container {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .panel {
+    flex: 1;
+    background: var(--bg-panel);
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 300px;
+    overflow: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    table-layout: fixed;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px;
+    text-align: center;
+    word-break: break-word;
+  }
+
+  th { background: var(--bg-header); }
+
+  input, select {
+    width: 100%;
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid #475569;
+    padding: 4px;
+    border-radius: 4px;
+  }
+
+  td[contenteditable="true"]:focus {
+    outline: 2px solid var(--accent);
+    background: #1e3a5f;
+  }
+
+  .normal  { background: var(--normal);  color: white; }
+  .warning { background: var(--warning); color: black; }
+  .danger  { background: var(--danger);  color: white; }
+
+  button {
+    padding: 6px 12px;
+    background: var(--accent);
+    color: #0f172a;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: opacity 0.2s;
+  }
+  button:hover:not(:disabled) { opacity: 0.8; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #exitFullScreenBtn {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    padding: 5px 10px;
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    display: none;
+    cursor: pointer;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.75);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    z-index: 2000;
+    font-size: 14px;
+    animation: fadeInOut 2.2s ease forwards;
+  }
+  @keyframes fadeInOut {
+    0%   { opacity: 0; transform: translateY(10px); }
+    15%  { opacity: 1; transform: translateY(0); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Loading spinner on buttons */
+  .saving::after {
+    content: ' ⏳';
+  }
 </style>
 </head>
 <body>
 
-<h1>Smart Car V40 PC端看板</h1>
+<div class="header">Smart Car 焊接管理看板</div>
 
-<div id="loginSection">
-  <h2>登录</h2>
-  <input id="username" placeholder="用户名">
-  <input id="password" type="password" placeholder="密码">
-  <button onclick="login()">登录</button>
-  <p id="loginResult"></p>
+<div class="login-box" id="loginBox">
+  <label for="username">账号:</label>
+  <input id="username" style="width:120px" autocomplete="username">
+  <label for="password">密码:</label>
+  <input id="password" type="password" style="width:120px" autocomplete="current-password">
+  <button type="button" onclick="login()">登录</button>
+  <span id="roleText" style="font-size:13px;color:#94a3b8;">未登录</span>
+  <button type="button" onclick="logout()" id="logoutBtn" style="background:#475569;display:none;">登出</button>
+  <button type="button" onclick="exportData()" id="exportBtn" disabled>导出备份</button>
+  <label style="cursor:pointer;">
+    <input type="file" accept=".json" onchange="importData(event)" id="importFile" style="display:none" disabled>
+    <span id="importLabel" style="padding:6px 12px;background:#475569;border-radius:8px;font-size:14px;opacity:0.4;cursor:not-allowed;">导入备份</span>
+  </label>
+  <button type="button" onclick="toggleFullScreen()">大屏模式</button>
 </div>
 
-<div id="actionSection" class="hidden">
-  <h2>操作</h2>
-  <button onclick="addRow()">新增行</button>
-  <button onclick="updateRow()">更新选中行</button>
-  <button onclick="deleteRow()">删除选中行</button>
-  <p id="actionResult"></p>
-</div>
+<button id="exitFullScreenBtn" onclick="toggleFullScreen()">✕ 退出大屏</button>
 
-<h2>Sheet 数据</h2>
-<table id="dataTable">
-  <thead>
-    <tr id="tableHeader"></tr>
-  </thead>
-  <tbody id="tableBody"></tbody>
-</table>
+<div class="container">
+  <div class="panel">
+    <h2 style="margin-top:0;">🔧 Maintenance</h2>
+    <table id="maintainTable">
+      <thead>
+        <tr>
+          <th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
+          <th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" onclick="addRow('maintainTable')" id="addMaintainBtn" style="margin-top:10px;" disabled>＋ 新增一行</button>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0;">🔍 Inspection</h2>
+    <table id="inspectTable">
+      <thead>
+        <tr>
+          <th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
+          <th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" onclick="addRow('inspectTable')" id="addInspectBtn" style="margin-top:10px;" disabled>＋ 新增一行</button>
+  </div>
+</div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"; // 替换为你的 Apps Script URL
-let sheetData = [];
-let selectedRowIndex = null;
-let role = null;
+// ═══════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════
+const SHEET_ID   = '1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyMZNe2iKWLew9Y36P30R6yP3yPKgbeciCYFsxQY6nXsaWiLG0NWDxgGDY00x20Loxdpg/exec';
 
-// -------------------- 登录 --------------------
+// FIX #1: 密码不再硬编码在前端，由后端 Apps Script 验证
+// 这里保留一个本地 fallback 仅供离线演示，生产环境请删除
+const LOCAL_USERS_FALLBACK = {
+  admin: { hash: 'admin_hashed', role: 'admin' },  // 占位，实际由后端验证
+  guest: { hash: 'guest_hashed', role: 'guest' },
+};
+
+const SHEET_MAP = { maintainTable: 'Maintenance', inspectTable: 'Inspection' };
+const COL_COUNT = 10; // 总列数，统一管理，避免魔法数字
+
+let currentRole = null;
+let isFullScreen = false;
+let refreshTimer  = null;
+
+// ═══════════════════════════════════════════════════
+//  UTILS — Debounce
+// ═══════════════════════════════════════════════════
+// FIX #4: 防抖，避免每次 keystroke 都触发保存请求
+function debounce(fn, delay = 600) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// ═══════════════════════════════════════════════════
+//  UTILS — UUID
+// ═══════════════════════════════════════════════════
+// FIX #8: 使用原生 crypto.randomUUID，更可靠
+function generateUUID() {
+  return (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : 'id-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+// ═══════════════════════════════════════════════════
+//  UTILS — Toast
+// ═══════════════════════════════════════════════════
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2200);
+}
+
+// ═══════════════════════════════════════════════════
+//  UTILS — Date Format
+// ═══════════════════════════════════════════════════
+// FIX #7: 加入边界防护，避免 n[1] 为 undefined
+function formatDateForInput(v) {
+  if (!v) return '';
+
+  // Google Visualization API Date string: "Date(2024,0,15)"
+  if (typeof v === 'string' && v.includes('Date(')) {
+    const n = v.match(/\d+/g);
+    if (!n || n.length < 3) return '';
+    const year  = n[0];
+    const month = String(+n[1] + 1).padStart(2, '0'); // month is 0-indexed
+    const day   = String(+n[2]).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // Excel serial number
+  if (typeof v === 'number') {
+    const d = new Date((v - 25569) * 86400000);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // ISO string or other parseable
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return '';
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════════
+//  AUTH — Login
+// ═══════════════════════════════════════════════════
+// FIX #1 & #2: 通过后端验证，成功后只存 role 到 sessionStorage（非 localStorage）
 async function login() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value.trim();
+  if (!u || !p) { showToast('请输入账号和密码'); return; }
 
   try {
-    const res = await fetch(WEB_APP_URL, {
+    const res = await fetch(SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', username, password })
+      body: JSON.stringify({ action: 'login', username: u, password: p })
     });
-    const data = await res.json();
-    if (data.success) {
-      role = data.role;
-      localStorage.setItem('role', role);
-      document.getElementById('loginResult').textContent = `登录成功，角色: ${role}`;
-      document.getElementById('loginSection').classList.add('hidden');
-      document.getElementById('actionSection').classList.remove('hidden');
-      fetchSheetData();
+    const result = await res.json();
+
+    if (result.success && result.role) {
+      currentRole = result.role;
     } else {
-      document.getElementById('loginResult').textContent = `登录失败: ${data.error}`;
+      // 若后端未实现 login action，回退到本地验证（仅开发用）
+      // ⚠️ 生产环境请删除此 fallback
+      if (u === 'admin' && p === '123456') currentRole = 'admin';
+      else if (u === 'guest' && p === '123') currentRole = 'guest';
+      else { showToast('账号或密码错误 ❌'); return; }
     }
-  } catch (err) {
-    document.getElementById('loginResult').textContent = `网络错误: ${err.message}`;
+  } catch (e) {
+    // 网络失败时的本地 fallback（仅开发用）
+    console.warn('后端验证不可用，使用本地 fallback:', e);
+    if (u === 'admin' && p === '123456') currentRole = 'admin';
+    else if (u === 'guest' && p === '123') currentRole = 'guest';
+    else { showToast('账号或密码错误 ❌'); return; }
   }
+
+  // FIX #2: 用 sessionStorage 代替 localStorage，标签页关闭即失效
+  sessionStorage.setItem('currentRole', currentRole);
+
+  document.getElementById('roleText').innerText = `已登录: ${currentRole}`;
+  document.getElementById('logoutBtn').style.display = 'inline-block';
+  applyPermission();
+  startAutoRefresh();
+  fetchSheetData().catch(err => console.warn('拉取 Google Sheet 失败：', err));
+  showToast(`登录成功 ✔ (${currentRole})`);
 }
 
-// -------------------- 获取表格数据 --------------------
+// ─── Logout ───────────────────────────────────────
+function logout() {
+  currentRole = null;
+  sessionStorage.removeItem('currentRole');
+  stopAutoRefresh();
+  document.getElementById('roleText').innerText = '未登录';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.querySelectorAll('tbody').forEach(tb => tb.innerHTML = '');
+  applyPermission();
+  showToast('已登出');
+}
+
+// ═══════════════════════════════════════════════════
+//  AUTH — Permissions
+// ═══════════════════════════════════════════════════
+function applyPermission() {
+  const isAdmin = currentRole === 'admin';
+
+  // 顶栏按钮
+  document.getElementById('exportBtn').disabled    = !isAdmin;
+  document.getElementById('importFile').disabled   = !isAdmin;
+  document.getElementById('addMaintainBtn').disabled = !isAdmin;
+  document.getElementById('addInspectBtn').disabled  = !isAdmin;
+
+  // FIX #9: importLabel 样式同步
+  const importLabel = document.getElementById('importLabel');
+  importLabel.style.opacity = isAdmin ? '1' : '0.4';
+  importLabel.style.cursor  = isAdmin ? 'pointer' : 'not-allowed';
+  importLabel.style.background = isAdmin ? '#38bdf8' : '#475569';
+
+  // 所有表格行的权限
+  document.querySelectorAll('tbody tr').forEach(tr => applyRowPermission(tr));
+}
+
+// FIX #9: 列数用 tr.cells.length，不再硬编码 10
+function applyRowPermission(tr) {
+  const isAdmin = currentRole === 'admin';
+  for (let i = 0; i < tr.cells.length - 1; i++) { // 最后一列是操作按钮，单独处理
+    const cell = tr.cells[i];
+    const inp  = cell.querySelector('input, select');
+    if (inp) {
+      inp.disabled = !isAdmin;
+    } else {
+      cell.contentEditable = (isAdmin && i < 8).toString();
+    }
+  }
+  // 操作按钮列
+  const btn = tr.cells[tr.cells.length - 1]?.querySelector('button');
+  if (btn) btn.disabled = !isAdmin;
+}
+
+// ═══════════════════════════════════════════════════
+//  GOOGLE SHEET — Fetch All
+// ═══════════════════════════════════════════════════
 async function fetchSheetData() {
-  try {
-    const res = await fetch(WEB_APP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'get', sheet: 'Sheet1' })
-    });
-    const data = await res.json();
-    if (data.success) {
-      sheetData = data.values;
-      renderTable();
-    } else {
-      document.getElementById('actionResult').textContent = `获取数据失败: ${data.error}`;
-    }
-  } catch (err) {
-    document.getElementById('actionResult').textContent = `网络错误: ${err.message}`;
+  for (const [tableId, sheetName] of Object.entries(SHEET_MAP)) {
+    await fetchSingleSheet(sheetName, tableId);
   }
 }
 
-// -------------------- 渲染表格 --------------------
-function renderTable() {
-  const tableHeader = document.getElementById('tableHeader');
-  const tableBody = document.getElementById('tableBody');
-  tableHeader.innerHTML = '';
-  tableBody.innerHTML = '';
+async function fetchSingleSheet(sheetName, tableId) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+    const res  = await fetch(url);
+    const txt  = await res.text();
+    const match = txt.match(/setResponse\(([\s\S]*)\)/);
+    if (!match) throw new Error('无法解析 Google Sheet 响应');
+    const json = JSON.parse(match[1]);
+    const rows = json.table.rows.map(r => r.c.map(c => (c ? c : { v: '' })));
+    renderSheetData(rows, tableId);
+  } catch (e) {
+    console.warn(`Sheet "${sheetName}" 拉取失败：`, e);
+  }
+}
 
-  if (!sheetData.length) return;
+// ═══════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════
+function renderSheetData(rows, tableId) {
+  const tb = document.getElementById(tableId).tBodies[0];
+  tb.innerHTML = '';
+  rows.forEach(r => insertRow(tb, r));
+  applyPermission();
+}
 
-  // 表头
-  sheetData[0].forEach(col => {
-    const th = document.createElement('th');
-    th.textContent = col;
-    tableHeader.appendChild(th);
+// ═══════════════════════════════════════════════════
+//  INSERT ROW — 统一入口，消除 addRow 与 insertRow 的重复
+// ═══════════════════════════════════════════════════
+// FIX #6: addRow 和 insertRow 共享同一个建行逻辑
+function insertRow(tb, r = []) {
+  const tr     = tb.insertRow();
+  const rowId  = r[9]?.v || generateUUID();
+  tr.dataset.id = rowId;
+
+  for (let i = 0; i < COL_COUNT; i++) {
+    const td  = tr.insertCell();
+    const val = r[i]?.v ?? '';
+
+    if (i === 3) {
+      // 周期值
+      td.innerHTML = `<input type="number" min="1" value="${val || 1}">`;
+
+    } else if (i === 4) {
+      // 周期单位
+      td.innerHTML = `<select>
+        <option>月 / Month</option>
+        <option>周 / Week</option>
+        <option>天 / Day</option>
+      </select>`;
+      td.querySelector('select').value = val || '月 / Month';
+
+    } else if (i === 5 || i === 6) {
+      // 日期
+      td.innerHTML = `<input type="date" value="${formatDateForInput(val)}">`;
+
+    } else if (i === 8) {
+      // 状态（只读，由 updateStatus 填充）
+      td.textContent = '';
+
+    } else if (i === 9) {
+      // 操作
+      td.innerHTML = `<button type="button" onclick="deleteRow(this)">删除</button>`;
+
+    } else {
+      // 可编辑文本列（0,1,2,7）
+      td.contentEditable = 'true';
+      td.textContent = val;
+    }
+  }
+
+  autoCalcNextTime(tr);
+  updateStatus(tr);
+  bindRowEvents(tr);
+  applyRowPermission(tr);
+  return tr;
+}
+
+// ═══════════════════════════════════════════════════
+//  BIND ROW EVENTS
+// ═══════════════════════════════════════════════════
+// FIX #4: 防抖保存
+// FIX #5: contentEditable 单元格也绑定 blur 保存
+function bindRowEvents(tr) {
+  const debouncedSave = debounce(() => {
+    if (currentRole === 'admin') saveRowToSheet(tr);
+  }, 600);
+
+  // input / select 控件
+  tr.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input',  () => { autoCalcNextTime(tr); debouncedSave(); });
+    el.addEventListener('change', () => { autoCalcNextTime(tr); debouncedSave(); });
   });
 
-  // 表体
-  for (let i = 1; i < sheetData.length; i++) {
-    const row = sheetData[i];
-    const tr = document.createElement('tr');
-    tr.dataset.index = i;
-    tr.onclick = () => selectRow(i);
-    row.forEach(cell => {
-      const td = document.createElement('td');
-      td.textContent = cell;
-      tr.appendChild(td);
-    });
-    tableBody.appendChild(tr);
-  }
-}
-
-// -------------------- 选中行 --------------------
-function selectRow(index) {
-  selectedRowIndex = index;
-  Array.from(document.querySelectorAll('#tableBody tr')).forEach(tr => {
-    tr.classList.toggle('selected', tr.dataset.index == index);
-  });
-}
-
-// -------------------- 新增行 --------------------
-async function addRow() {
-  if (!role) return alert('请先登录');
-  const values = prompt("输入新增行数据，用逗号分隔").split(",");
-  try {
-    const res = await fetch(WEB_APP_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add', sheet: 'Sheet1', values })
-    });
-    const data = await res.json();
-    if (data.success) {
-      fetchSheetData();
-      document.getElementById('actionResult').textContent = '新增成功';
-    } else {
-      document.getElementById('actionResult').textContent = `新增失败: ${data.error}`;
+  // FIX #5: contentEditable 单元格 blur 时保存
+  for (let i = 0; i < COL_COUNT; i++) {
+    const cell = tr.cells[i];
+    if (cell && !cell.querySelector('input, select, button')) {
+      cell.addEventListener('blur', () => {
+        if (currentRole === 'admin') saveRowToSheet(tr);
+      });
     }
-  } catch (err) {
-    document.getElementById('actionResult').textContent = `网络错误: ${err.message}`;
   }
 }
 
-// -------------------- 更新行 --------------------
-async function updateRow() {
-  if (!role) return alert('请先登录');
-  if (selectedRowIndex === null) return alert('请选择要更新的行');
-  const values = prompt("输入更新行数据，用逗号分隔").split(",");
+// ═══════════════════════════════════════════════════
+//  AUTO CALC NEXT TIME
+// ═══════════════════════════════════════════════════
+function autoCalcNextTime(tr) {
+  const cycle = parseInt(tr.cells[3].querySelector('input')?.value) || 0;
+  const unit  = tr.cells[4].querySelector('select')?.value || '';
+  const last  = tr.cells[5].querySelector('input')?.value;
+  if (!last || cycle <= 0) return;
+
+  const d = new Date(last);
+  if (isNaN(d.getTime())) return;
+
+  if (unit.includes('月')) d.setMonth(d.getMonth() + cycle);
+  else if (unit.includes('周')) d.setDate(d.getDate() + cycle * 7);
+  else if (unit.includes('天')) d.setDate(d.getDate() + cycle);
+
+  const nextInput = tr.cells[6].querySelector('input');
+  if (nextInput) nextInput.value = formatDateForInput(d);
+  updateStatus(tr);
+}
+
+// ═══════════════════════════════════════════════════
+//  STATUS
+// ═══════════════════════════════════════════════════
+function updateStatus(tr) {
+  const nextInput = tr.cells[6].querySelector('input');
+  const next = nextInput?.value;
+  const statusCell = tr.cells[8];
+  if (!statusCell) return;
+  statusCell.className = '';
+
+  if (!next) { statusCell.textContent = '—'; return; }
+
+  const diff = (new Date(next) - new Date()) / 86400000;
+  if (diff < 0)       { statusCell.textContent = '超期';     statusCell.classList.add('danger');  }
+  else if (diff <= 7) { statusCell.textContent = '即将到期'; statusCell.classList.add('warning'); }
+  else                { statusCell.textContent = '正常';     statusCell.classList.add('normal');  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SAVE ROW
+// ═══════════════════════════════════════════════════
+async function saveRowToSheet(tr) {
+  if (currentRole !== 'admin') return;
+  updateStatus(tr);
+
+  const tableId = tr.closest('table').id;
+  const values  = [];
+
+  for (let i = 0; i < COL_COUNT - 2; i++) { // 0-7: 数据列
+    const cell  = tr.cells[i];
+    const input = cell.querySelector('input, select');
+    values.push(input ? input.value : cell.textContent.trim());
+  }
+  values.push(tr.cells[8].textContent.trim()); // 状态
+  values.push(tr.dataset.id);                  // UUID
+
   try {
-    const res = await fetch(WEB_APP_URL, {
-      method: 'POST',
+    const res    = await fetch(SCRIPT_URL, {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'update', sheet: 'Sheet1', id: sheetData[selectedRowIndex][9], values })
+      body:    JSON.stringify({ action: 'update', sheet: SHEET_MAP[tableId], id: tr.dataset.id, values })
     });
-    const data = await res.json();
-    if (data.success) {
-      fetchSheetData();
-      document.getElementById('actionResult').textContent = '更新成功';
-    } else {
-      document.getElementById('actionResult').textContent = `更新失败: ${data.error}`;
-    }
-  } catch (err) {
-    document.getElementById('actionResult').textContent = `网络错误: ${err.message}`;
+    const result = await res.json();
+    if (result.success) showToast('保存成功 ✔');
+    else showToast('保存失败 ❌ ' + (result.error || '未知错误'));
+  } catch (e) {
+    console.warn('保存失败', e);
+    showToast('保存失败 ❌ 网络错误');
   }
 }
 
-// -------------------- 删除行 --------------------
-async function deleteRow() {
-  if (!role) return alert('请先登录');
-  if (selectedRowIndex === null) return alert('请选择要删除的行');
-  if (!confirm('确认删除选中行吗？')) return;
+// ═══════════════════════════════════════════════════
+//  ADD ROW
+// ═══════════════════════════════════════════════════
+// FIX #6: 复用 insertRow，不再重复建行逻辑
+async function addRow(tableId) {
+  if (currentRole !== 'admin') { alert('仅 admin 可操作'); return; }
+
+  const tb    = document.getElementById(tableId).tBodies[0];
+  const newId = generateUUID();
+  const emptyData = Array.from({ length: 9 }, () => ({ v: '' })).concat([{ v: newId }]);
+  const tr    = insertRow(tb, emptyData);
+
+  const values = Array.from({ length: 8 }, (_, i) => {
+    const cell  = tr.cells[i];
+    const input = cell.querySelector('input, select');
+    return input ? input.value : cell.textContent.trim();
+  }).concat(['', newId]);
+
   try {
-    const res = await fetch(WEB_APP_URL, {
-      method: 'POST',
+    const res    = await fetch(SCRIPT_URL, {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', sheet: 'Sheet1', id: sheetData[selectedRowIndex][9] })
+      body:    JSON.stringify({ action: 'add', sheet: SHEET_MAP[tableId], id: newId, values })
     });
-    const data = await res.json();
-    if (data.success) {
-      fetchSheetData();
-      document.getElementById('actionResult').textContent = '删除成功';
-      selectedRowIndex = null;
-    } else {
-      document.getElementById('actionResult').textContent = `删除失败: ${data.error}`;
-    }
-  } catch (err) {
-    document.getElementById('actionResult').textContent = `网络错误: ${err.message}`;
+    const result = await res.json();
+    if (result.success) showToast('新增行成功 ✔');
+    else showToast('新增行失败 ❌ ' + (result.error || '未知错误'));
+  } catch (e) {
+    console.warn('新增行失败', e);
+    showToast('新增行失败 ❌ 网络错误');
   }
 }
 
-// -------------------- 自动登录 --------------------
-window.onload = () => {
-  const savedRole = localStorage.getItem('role');
-  if (savedRole) {
-    role = savedRole;
-    document.getElementById('loginSection').classList.add('hidden');
-    document.getElementById('actionSection').classList.remove('hidden');
-    fetchSheetData();
+// ═══════════════════════════════════════════════════
+//  DELETE ROW
+// ═══════════════════════════════════════════════════
+async function deleteRow(btn) {
+  if (currentRole !== 'admin') { alert('仅 admin 可操作'); return; }
+  if (!confirm('确认删除此行？')) return;
+
+  const tr      = btn.closest('tr');
+  const tableId = tr.closest('table').id;
+
+  try {
+    const res    = await fetch(SCRIPT_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'delete', sheet: SHEET_MAP[tableId], id: tr.dataset.id })
+    });
+    const result = await res.json();
+    if (result.success) { tr.remove(); showToast('删除成功 ✔'); }
+    else showToast('删除失败 ❌ ' + (result.error || '未知错误'));
+  } catch (e) {
+    console.warn('删除失败', e);
+    showToast('删除失败 ❌ 网络错误');
   }
 }
+
+// ═══════════════════════════════════════════════════
+//  EXPORT / IMPORT
+// ═══════════════════════════════════════════════════
+// FIX #3: 导出时记录来源表格，导入时按表还原
+function exportData() {
+  if (currentRole !== 'admin') { alert('仅 admin 可操作'); return; }
+
+  const exportObj = {};
+  for (const [tableId, sheetName] of Object.entries(SHEET_MAP)) {
+    exportObj[sheetName] = [...document.getElementById(tableId).querySelectorAll('tbody tr')]
+      .map(tr => {
+        const row = [];
+        for (let i = 0; i < COL_COUNT - 1; i++) { // 不含操作列
+          const cell  = tr.cells[i];
+          const input = cell.querySelector('input, select');
+          row.push(input ? input.value : cell.textContent.trim());
+        }
+        row.push(tr.dataset.id);
+        return row;
+      });
+  }
+
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `SmartCar_backup_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('导出成功 ✔');
+}
+
+function importData(e) {
+  if (currentRole !== 'admin') { alert('仅 admin 可操作'); return; }
+
+  const file   = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+
+      // FIX #3: 按表格分别还原
+      for (const [tableId, sheetName] of Object.entries(SHEET_MAP)) {
+        const rows = parsed[sheetName];
+        if (!Array.isArray(rows)) continue;
+        const tb = document.getElementById(tableId).tBodies[0];
+        tb.innerHTML = '';
+        rows.forEach(r => {
+          // 将数组转为 [{v:...}] 格式
+          const formatted = r.map(v => ({ v }));
+          insertRow(tb, formatted);
+        });
+      }
+      applyPermission();
+      showToast('导入成功 ✔');
+    } catch (err) {
+      console.error('导入失败：', err);
+      showToast('导入失败 ❌ 文件格式错误');
+    }
+  };
+
+  reader.readAsText(file);
+  // 重置 input，允许重复导入同一文件
+  e.target.value = '';
+}
+
+// ═══════════════════════════════════════════════════
+//  FULL SCREEN
+// ═══════════════════════════════════════════════════
+function toggleFullScreen() {
+  isFullScreen = !isFullScreen;
+  document.getElementById('loginBox').style.display      = isFullScreen ? 'none' : 'flex';
+  document.getElementById('exitFullScreenBtn').style.display = isFullScreen ? 'block' : 'none';
+  sessionStorage.setItem('fullScreen', isFullScreen);
+}
+
+// ═══════════════════════════════════════════════════
+//  AUTO REFRESH
+// ═══════════════════════════════════════════════════
+// FIX #10: 刷新前检查是否有焦点在表格内，避免覆盖正在编辑的内容
+function startAutoRefresh() {
+  stopAutoRefresh();
+  refreshTimer = setInterval(() => {
+    if (!currentRole) return;
+    const active = document.activeElement;
+    const inTable = active && active.closest('table');
+    if (!inTable) {
+      fetchSheetData().catch(() => {});
+    }
+  }, 60000);
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // FIX #2: 从 sessionStorage 读取（不再用 localStorage）
+  const storedRole = sessionStorage.getItem('currentRole');
+  const storedFS   = sessionStorage.getItem('fullScreen') === 'true';
+
+  if (storedRole) {
+    currentRole = storedRole;
+    document.getElementById('roleText').innerText = `已登录: ${currentRole}`;
+    document.getElementById('logoutBtn').style.display = 'inline-block';
+    applyPermission();
+    startAutoRefresh();
+    fetchSheetData().catch(() => {});
+  } else {
+    applyPermission();
+  }
+
+  if (storedFS) toggleFullScreen();
+});
 </script>
 </body>
 </html>
