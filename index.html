@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V41 最终稳定版</title>
+<title>Smart Car 焊接管理看板 V42</title>
 <style>
 :root{
 --bg:#0f172a;
@@ -20,11 +20,18 @@ font-family:Arial;
 background:var(--bg);
 color:var(--text);
 }
-.header{
-text-align:center;
-font-size:30px;
-font-weight:bold;
+.topbar{
+display:flex;
+justify-content:space-between;
+align-items:center;
 margin-bottom:20px;
+}
+.logo{
+height:50px;
+}
+.header{
+font-size:28px;
+font-weight:bold;
 }
 .login-box{
 display:flex;
@@ -33,11 +40,17 @@ justify-content:center;
 margin-bottom:20px;
 flex-wrap:wrap;
 }
+.container{
+display:flex;
+gap:20px;
+flex-wrap:wrap;
+}
 .panel{
+flex:1;
+min-width:48%;
 background:var(--panel);
 padding:20px;
 border-radius:12px;
-margin-bottom:20px;
 overflow:auto;
 }
 table{
@@ -54,7 +67,7 @@ word-break:break-word;
 th{
 background:var(--header);
 }
-input,button{
+input,select,button{
 padding:6px;
 border:none;
 border-radius:6px;
@@ -68,9 +81,9 @@ button:disabled{
 opacity:0.4;
 cursor:not-allowed;
 }
-td[contenteditable="true"]{
-background:#0f172a;
-}
+.normal{background:#16a34a;}
+.warning{background:#eab308;color:black;}
+.danger{background:#dc2626;}
 .toast{
 position:fixed;
 bottom:20px;
@@ -79,64 +92,55 @@ background:black;
 color:white;
 padding:10px 20px;
 border-radius:8px;
-z-index:999;
 }
 </style>
 </head>
 <body>
 
+<div class="topbar">
+<img class="logo" src="你的logo地址">
 <div class="header">Smart Car 焊接管理看板</div>
+<button onclick="toggleLogin()">隐藏登录</button>
+</div>
 
-<div class="login-box">
+<div class="login-box" id="loginBox">
 <input id="username" placeholder="账号">
 <input id="password" type="password" placeholder="密码">
 <button id="loginBtn">登录</button>
 <span id="roleText">未登录</span>
 <button id="logoutBtn" style="display:none;">登出</button>
+<button id="exportBtn">导出</button>
+<input type="file" id="importFile">
 </div>
 
+<div class="container">
 <div class="panel">
-<h2>🔧 Maintenance</h2>
+<h2>Maintenance</h2>
 <table id="maintainTable">
 <thead>
 <tr>
-<th>项目</th>
-<th>工序</th>
-<th>责任人</th>
-<th>周期值</th>
-<th>周期单位</th>
-<th>上次时间</th>
-<th>下次时间</th>
-<th>备注</th>
-<th>状态</th>
-<th>操作</th>
+<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>单位</th>
+<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
-<button id="addMaintainBtn" disabled>＋ 新增一行</button>
+<button id="addMaintainBtn">新增</button>
 </div>
 
 <div class="panel">
-<h2>🔍 Inspection</h2>
+<h2>Inspection</h2>
 <table id="inspectTable">
 <thead>
 <tr>
-<th>项目</th>
-<th>工序</th>
-<th>责任人</th>
-<th>周期值</th>
-<th>周期单位</th>
-<th>上次时间</th>
-<th>下次时间</th>
-<th>备注</th>
-<th>状态</th>
-<th>操作</th>
+<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>单位</th>
+<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
-<button id="addInspectBtn" disabled>＋ 新增一行</button>
+<button id="addInspectBtn">新增</button>
+</div>
 </div>
 
 <script>
@@ -148,6 +152,10 @@ inspectTable:'Inspection'
 };
 
 let currentRole=sessionStorage.getItem('currentRole')||null;
+
+function toggleLogin(){
+loginBox.style.display=loginBox.style.display==='none'?'flex':'none';
+}
 
 function showToast(msg){
 const t=document.createElement('div');
@@ -162,91 +170,49 @@ return 'id-'+Date.now().toString(36)+Math.random().toString(36).substr(2,9);
 }
 
 async function sendToSheet(action,sheet,id,values){
-try{
-const body={action,sheet};
-if(id) body.id=id;
-if(values) body.values=values;
-
 const res=await fetch(SCRIPT_URL,{
 method:'POST',
 headers:{'Content-Type':'text/plain;charset=utf-8'},
-body:JSON.stringify(body)
+body:JSON.stringify({action,sheet,id,values})
 });
-
-const text=await res.text();
-return JSON.parse(text);
-
-}catch(e){
-console.error(e);
-return {success:false};
-}
-}
-
-async function login(){
-const u=username.value.trim();
-const p=password.value.trim();
-
-if(u==='admin'&&p==='123456'){
-currentRole='admin';
-sessionStorage.setItem('currentRole','admin');
-}
-else if(u==='guest'&&p==='guest'){
-currentRole='guest';
-sessionStorage.setItem('currentRole','guest');
-}
-else{
-showToast('登录失败');
-return;
-}
-
-roleText.innerText='已登录:'+currentRole;
-logoutBtn.style.display='inline-block';
-
-applyPermission();
-loadAllData();
-showToast('登录成功');
-}
-
-function logout(){
-currentRole=null;
-sessionStorage.removeItem('currentRole');
-roleText.innerText='未登录';
-logoutBtn.style.display='none';
-applyPermission();
+return JSON.parse(await res.text());
 }
 
 function applyPermission(){
 const isAdmin=currentRole==='admin';
 
-addMaintainBtn.disabled=!isAdmin;
-addInspectBtn.disabled=!isAdmin;
-
-document.querySelectorAll('td').forEach(td=>{
+document.querySelectorAll('[contenteditable]').forEach(td=>{
 td.contentEditable=isAdmin;
 });
 
-document.querySelectorAll('button.del').forEach(btn=>{
+document.querySelectorAll('.del').forEach(btn=>{
 btn.disabled=!isAdmin;
 });
+
+addMaintainBtn.disabled=!isAdmin;
+addInspectBtn.disabled=!isAdmin;
 }
 
-async function loadAllData(){
-await loadTable('maintainTable');
-await loadTable('inspectTable');
-applyPermission();
+function calcNextDate(value,unit,lastDate){
+if(!value||!unit||!lastDate)return '';
+let d=new Date(lastDate);
+
+if(unit==='天') d.setDate(d.getDate()+Number(value));
+if(unit==='周') d.setDate(d.getDate()+Number(value)*7);
+if(unit==='月') d.setMonth(d.getMonth()+Number(value));
+
+return d.toISOString().split('T')[0];
 }
 
-async function loadTable(tableId){
-const result=await sendToSheet('load',SHEET_MAP[tableId]);
+function calcStatus(next){
+if(!next)return '';
+const today=new Date();
+const d=new Date(next);
+const diff=(d-today)/(1000*3600*24);
 
-if(!result.success||!result.data)return;
-
-const tbody=document.querySelector(`#${tableId} tbody`);
-tbody.innerHTML='';
-
-result.data.slice(1).forEach(row=>{
-createRow(tableId,row);
-});
+if(diff<0) return '超期';
+if(diff<=3) return '警告';
+return '正常';
 }
 
 function createRow(tableId,row=[]){
@@ -256,66 +222,127 @@ const id=row[9]||generateUUID();
 
 for(let i=0;i<9;i++){
 const td=document.createElement('td');
+
+if(i===4){
+td.innerHTML=`<select>
+<option>天</option>
+<option>周</option>
+<option>月</option>
+</select>`;
+if(row[i]) td.firstChild.value=row[i];
+}
+else if(i===5){
+td.innerHTML=`<input type="date" value="${row[i]||''}">`;
+}
+else{
 td.contentEditable=currentRole==='admin';
 td.innerText=row[i]||'';
-td.onblur=()=>saveRow(tr,tableId,id);
+}
+
 tr.appendChild(td);
 }
 
-const actionTd=document.createElement('td');
+const btn=document.createElement('button');
+btn.textContent='删除';
+btn.className='del';
+btn.onclick=()=>deleteRow(tr,tableId,id);
 
-const del=document.createElement('button');
-del.textContent='删除';
-del.className='del';
-del.disabled=currentRole!=='admin';
-del.onclick=()=>deleteRow(tr,tableId,id);
+const td=document.createElement('td');
+td.appendChild(btn);
+tr.appendChild(td);
 
-actionTd.appendChild(del);
-tr.appendChild(actionTd);
+tr.onchange=()=>updateLinked(tr,tableId,id);
 
 tbody.appendChild(tr);
+applyPermission();
 }
 
-async function addNewRow(tableId){
-const values=['','','','','','','','','',generateUUID()];
-const result=await sendToSheet('add',SHEET_MAP[tableId],null,values);
+function updateLinked(tr,tableId,id){
+const tds=tr.children;
 
-if(result.success){
-createRow(tableId,values);
-showToast('新增成功');
-}
+const cycle=tds[3].innerText;
+const unit=tds[4].querySelector('select').value;
+const last=tds[5].querySelector('input').value;
+
+const next=calcNextDate(cycle,unit,last);
+tds[6].innerText=next;
+
+const status=calcStatus(next);
+tds[8].innerText=status;
+
+tds[8].className=status==='正常'?'normal':status==='警告'?'warning':'danger';
+
+saveRow(tr,tableId,id);
 }
 
 async function saveRow(tr,tableId,id){
-const values=[...tr.children].slice(0,9).map(td=>td.innerText.trim());
-values.push(id);
+const tds=tr.children;
+const values=[
+tds[0].innerText,
+tds[1].innerText,
+tds[2].innerText,
+tds[3].innerText,
+tds[4].querySelector('select').value,
+tds[5].querySelector('input').value,
+tds[6].innerText,
+tds[7].innerText,
+tds[8].innerText,
+id
+];
 
-const result=await sendToSheet('save',SHEET_MAP[tableId],id,values);
-
-if(result.success){
-showToast('保存成功');
-}
+await sendToSheet('save',SHEET_MAP[tableId],id,values);
 }
 
 async function deleteRow(tr,tableId,id){
-const result=await sendToSheet('delete',SHEET_MAP[tableId],id);
-
-if(result.success){
+await sendToSheet('delete',SHEET_MAP[tableId],id);
 tr.remove();
-showToast('删除成功');
-}
 }
 
-loginBtn.onclick=login;
-logoutBtn.onclick=logout;
+async function loadTable(tableId){
+const result=await sendToSheet('load',SHEET_MAP[tableId]);
+document.querySelector(`#${tableId} tbody`).innerHTML='';
+result.data.slice(1).forEach(r=>createRow(tableId,r));
+}
 
-addMaintainBtn.onclick=()=>addNewRow('maintainTable');
-addInspectBtn.onclick=()=>addNewRow('inspectTable');
+function loadAll(){
+loadTable('maintainTable');
+loadTable('inspectTable');
+}
 
-window.onload=()=>{
+loginBtn.onclick=()=>{
+if(username.value==='admin'&&password.value==='123456'){
+currentRole='admin';
+sessionStorage.setItem('currentRole','admin');
+roleText.innerText='admin';
+logoutBtn.style.display='inline-block';
 applyPermission();
-loadAllData();
+}
 };
+
+logoutBtn.onclick=()=>{
+currentRole=null;
+sessionStorage.removeItem('currentRole');
+roleText.innerText='未登录';
+logoutBtn.style.display='none';
+applyPermission();
+};
+
+addMaintainBtn.onclick=()=>createRow('maintainTable',['','','','','天','','','','',generateUUID()]);
+addInspectBtn.onclick=()=>createRow('inspectTable',['','','','','天','','','','',generateUUID()]);
+
+exportBtn.onclick=()=>{
+const data={
+maintain:[...maintainTable.querySelectorAll('tbody tr')].map(r=>[...r.children].map(td=>td.innerText)),
+inspect:[...inspectTable.querySelectorAll('tbody tr')].map(r=>[...r.children].map(td=>td.innerText))
+};
+const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+const a=document.createElement('a');
+a.href=URL.createObjectURL(blob);
+a.download='backup.json';
+a.click();
+};
+
+window.onload=loadAll;
 </script>
 
 </body>
