@@ -169,6 +169,18 @@ function generateUUID(){
 return 'id-'+Date.now().toString(36)+Math.random().toString(36).substr(2,9);
 }
 
+
+function restoreLinked(tr,id,row){
+const tds=tr.children;
+
+tds[6].innerText=row[6]||'';
+tds[7].innerText=row[7]||'';
+tds[8].innerText=row[8]||'';
+
+tr.onchange=()=>updateLinked(tr,null,id);
+}
+
+
 async function sendToSheet(action,sheet,id,values){
 const res=await fetch(SCRIPT_URL,{
 method:'POST',
@@ -219,7 +231,7 @@ if(diff<=3) return '警告';
 return '正常';
 }
 
-function createRow(tableId,row=[]){
+function createRow(tableId,row=[],isLoading=false){
 const tbody=document.querySelector(`#${tableId} tbody`);
 const tr=document.createElement('tr');
 const id=row[9]||generateUUID();
@@ -236,7 +248,7 @@ td.innerHTML=`<select>
 if(row[i]) td.firstChild.value=row[i];
 }
 else if(i===5){
-td.innerHTML=`<input type="date" value="${row[i]||''}">`;
+td.innerHTML=`<input type="date" value="${formatDateOnly(row[i])}">`;
 }
 else{
 td.contentEditable=currentRole==='admin';
@@ -255,9 +267,15 @@ const td=document.createElement('td');
 td.appendChild(btn);
 tr.appendChild(td);
 
+if(!isLoading){
 tr.onchange=()=>updateLinked(tr,tableId,id);
+}
 
 tbody.appendChild(tr);
+
+if(isLoading){
+restoreLinked(tr,id,row);
+}
 
 return tr;
 }
@@ -281,7 +299,10 @@ saveRow(tr,tableId,id);
 }
 
 async function saveRow(tr,tableId,id){
+if(currentRole!=='admin') return;
+
 const tds=tr.children;
+
 const values=[
 tds[0].innerText,
 tds[1].innerText,
@@ -299,8 +320,17 @@ await sendToSheet('save',SHEET_MAP[tableId],id,values);
 }
 
 async function deleteRow(tr,tableId,id){
-await sendToSheet('delete',SHEET_MAP[tableId],id);
+if(currentRole!=='admin'){
+showToast('无权限');
+return;
+}
+
+const result=await sendToSheet('delete',SHEET_MAP[tableId],id);
+
+if(result.success){
 tr.remove();
+showToast('删除成功');
+}
 }
 
 async function loadTable(tableId){
@@ -312,12 +342,10 @@ const tbody=document.querySelector(`#${tableId} tbody`);
 tbody.innerHTML='';
 
 result.data.slice(1).forEach(row=>{
-const tr=createRow(tableId,row);
-
-const id=row[9]||generateUUID();
-
-updateLinked(tr,tableId,id);
+createRow(tableId,row,true);
 });
+
+applyPermission();
 }
 
 function loadAll(){
