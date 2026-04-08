@@ -95,7 +95,7 @@
 
 <script>
 // ═════════════════ V41 CONFIG ═════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-p9DlabLgnUxtygVnFxMOkzwZ9WPVVrdcp2KDgEpCb5f_gGm6EUIqCepxrGfm2yzc6w/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj1Xvtof3AqoB6K2YYZJWSaTuvK3jgiRLs3lKdFGGP3ZhUvVdlltRg26a9fv4Au7Exbg/exec';
 const SHEET_ID   = '1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
 const SHEET_MAP  = { maintainTable: 'Maintenance', inspectTable: 'Inspection' };
 const COL_COUNT  = 10;
@@ -117,14 +117,14 @@ async function sendToSheet(action,sheet,id,values){
 
     const res = await fetch(SCRIPT_URL,{
       method:'POST',
-      mode:'no-cors',
       headers:{
         'Content-Type':'text/plain;charset=utf-8'
       },
       body:JSON.stringify(body)
     });
 
-    return { success:true };
+    const text = await res.text();
+    return JSON.parse(text);
 
   }catch(e){
     console.error('请求失败:',e);
