@@ -98,7 +98,7 @@ border-radius:8px;
 <body>
 
 <div class="topbar">
-<img class="logo" src="你的logo地址">
+<img class="logo" src="LOGO.png" style="height:52px;">
 <div class="header">Smart Car 焊接管理看板</div>
 <button onclick="toggleLogin()">隐藏登录</button>
 </div>
@@ -191,6 +191,10 @@ btn.disabled=!isAdmin;
 
 addMaintainBtn.disabled=!isAdmin;
 addInspectBtn.disabled=!isAdmin;
+
+document.querySelectorAll('select,input[type="date"]').forEach(el=>{
+el.disabled=!isAdmin;
+});
 }
 
 function calcNextDate(value,unit,lastDate){
@@ -254,7 +258,8 @@ tr.appendChild(td);
 tr.onchange=()=>updateLinked(tr,tableId,id);
 
 tbody.appendChild(tr);
-applyPermission();
+
+return tr;
 }
 
 function updateLinked(tr,tableId,id){
@@ -300,8 +305,19 @@ tr.remove();
 
 async function loadTable(tableId){
 const result=await sendToSheet('load',SHEET_MAP[tableId]);
-document.querySelector(`#${tableId} tbody`).innerHTML='';
-result.data.slice(1).forEach(r=>createRow(tableId,r));
+
+if(!result.success||!result.data)return;
+
+const tbody=document.querySelector(`#${tableId} tbody`);
+tbody.innerHTML='';
+
+result.data.slice(1).forEach(row=>{
+const tr=createRow(tableId,row);
+
+const id=row[9]||generateUUID();
+
+updateLinked(tr,tableId,id);
+});
 }
 
 function loadAll(){
@@ -310,13 +326,29 @@ loadTable('inspectTable');
 }
 
 loginBtn.onclick=()=>{
-if(username.value==='admin'&&password.value==='123456'){
+const u=username.value.trim();
+const p=password.value.trim();
+
+if(u==='admin'&&p==='123456'){
 currentRole='admin';
 sessionStorage.setItem('currentRole','admin');
-roleText.innerText='admin';
-logoutBtn.style.display='inline-block';
-applyPermission();
 }
+else if(u==='guest'&&p==='123'){
+currentRole='guest';
+sessionStorage.setItem('currentRole','guest');
+}
+else{
+showToast('登录失败');
+return;
+}
+
+roleText.innerText='已登录:'+currentRole;
+logoutBtn.style.display='inline-block';
+
+applyPermission();
+loadAll();
+
+showToast('登录成功');
 };
 
 logoutBtn.onclick=()=>{
@@ -342,7 +374,18 @@ a.download='backup.json';
 a.click();
 };
 
-window.onload=loadAll;
+window.onload=()=>{
+loadAll();
+
+currentRole=sessionStorage.getItem('currentRole')||null;
+
+if(currentRole){
+roleText.innerText='已登录:'+currentRole;
+logoutBtn.style.display='inline-block';
+}
+
+applyPermission();
+};
 </script>
 
 </body>
