@@ -98,7 +98,7 @@ border-radius:8px;
 <body>
 
 <div class="topbar">
-<img class="logo" src="LOGO.png" style="height:52px;">
+<img class="logo" src="LOGO.png" style="height:152px;">
 <div class="header">Smart Car 焊接管理看板</div>
 <button onclick="toggleLogin()">隐藏登录</button>
 </div>
@@ -230,6 +230,20 @@ if(diff<0) return '超期';
 if(diff<=3) return '警告';
 return '正常';
 }
+
+
+function formatDateOnly(date){
+    if(!date) return ''; // 如果为空
+    const d = new Date(date);
+    if(isNaN(d)) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${year}-${month}-${day}`;
+}
+
+
+
 
 function createRow(tableId,row=[],isLoading=false){
 const tbody=document.querySelector(`#${tableId} tbody`);
