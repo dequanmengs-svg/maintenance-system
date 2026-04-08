@@ -3,169 +3,320 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V41 企业稳定版</title>
+<title>Smart Car 焊接管理看板 V41 最终稳定版</title>
 <style>
-  :root {
-    --bg-deep: #0f172a;
-    --bg-panel: #1e293b;
-    --bg-header: #334155;
-    --border: #334155;
-    --accent: #38bdf8;
-    --input-bg: #0f172a;
-    --text: #f1f5f9;
-    --normal: #16a34a;
-    --warning: #eab308;
-    --danger: #dc2626;
-  }
-  *, *::before, *::after { box-sizing: border-box; }
-  body { margin:0; font-family:Arial,sans-serif; background:var(--bg-deep); color:var(--text); padding:20px; }
-  .header { text-align:center; font-size:30px; font-weight:bold; margin-bottom:20px; }
-  .login-box { margin-bottom:20px; text-align:center; display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:8px; }
-  .login-box label { font-size:14px; }
-  .container { display:flex; gap:20px; flex-wrap:wrap; }
-  .panel { flex:1; background:var(--bg-panel); border-radius:12px; padding:20px; min-width:300px; overflow:auto; }
-  table { width:100%; border-collapse:collapse; font-size:14px; table-layout:fixed; }
-  th, td { border:1px solid var(--border); padding:8px; text-align:center; word-break:break-word; }
-  th { background:var(--bg-header); }
-  input, select { width:100%; background:var(--input-bg); color:var(--text); border:1px solid #475569; padding:4px; border-radius:4px; }
-  td[contenteditable="true"]:focus { outline:2px solid var(--accent); background:#1e3a5f; }
-  .normal { background: var(--normal); color:white; }
-  .warning { background: var(--warning); color:black; }
-  .danger { background: var(--danger); color:white; }
-  button { padding:6px 12px; background:var(--accent); color:#0f172a; border:none; border-radius:8px; cursor:pointer; font-weight:bold; transition:opacity 0.2s; }
-  button:hover:not(:disabled) { opacity:0.8; }
-  button:disabled { opacity:0.4; cursor:not-allowed; }
-  #exitFullScreenBtn { position:fixed; top:10px; right:10px; z-index:1000; padding:5px 10px; background:var(--danger); color:white; border:none; border-radius:6px; display:none; cursor:pointer; }
-  .toast { position:fixed; bottom:20px; right:20px; background:rgba(0,0,0,0.75); color:white; padding:10px 20px; border-radius:8px; z-index:2000; font-size:14px; animation:fadeInOut 2.2s ease forwards; }
-  @keyframes fadeInOut { 0%{opacity:0; transform:translateY(10px);} 15%{opacity:1; transform:translateY(0);} 75%{opacity:1;} 100%{opacity:0;} }
-  .saving::after { content:' ⏳'; }
+:root{
+--bg:#0f172a;
+--panel:#1e293b;
+--header:#334155;
+--border:#475569;
+--accent:#38bdf8;
+--text:#f1f5f9;
+}
+body{
+margin:0;
+padding:20px;
+font-family:Arial;
+background:var(--bg);
+color:var(--text);
+}
+.header{
+text-align:center;
+font-size:30px;
+font-weight:bold;
+margin-bottom:20px;
+}
+.login-box{
+display:flex;
+gap:8px;
+justify-content:center;
+margin-bottom:20px;
+flex-wrap:wrap;
+}
+.panel{
+background:var(--panel);
+padding:20px;
+border-radius:12px;
+margin-bottom:20px;
+overflow:auto;
+}
+table{
+width:100%;
+border-collapse:collapse;
+table-layout:fixed;
+}
+th,td{
+border:1px solid var(--border);
+padding:8px;
+text-align:center;
+word-break:break-word;
+}
+th{
+background:var(--header);
+}
+input,button{
+padding:6px;
+border:none;
+border-radius:6px;
+}
+button{
+background:var(--accent);
+cursor:pointer;
+font-weight:bold;
+}
+button:disabled{
+opacity:0.4;
+cursor:not-allowed;
+}
+td[contenteditable="true"]{
+background:#0f172a;
+}
+.toast{
+position:fixed;
+bottom:20px;
+right:20px;
+background:black;
+color:white;
+padding:10px 20px;
+border-radius:8px;
+z-index:999;
+}
 </style>
 </head>
 <body>
 
 <div class="header">Smart Car 焊接管理看板</div>
 
-<div class="login-box" id="loginBox">
-  <label for="username">账号:</label>
-  <input id="username" style="width:120px" autocomplete="username">
-  <label for="password">密码:</label>
-  <input id="password" type="password" style="width:120px" autocomplete="current-password">
-  <button type="button" id="loginBtn">登录</button>
-  <span id="roleText" style="font-size:13px;color:#94a3b8;">未登录</span>
-  <button type="button" id="logoutBtn" style="background:#475569;display:none;">登出</button>
-  <button type="button" id="exportBtn" disabled>导出备份</button>
-  <label style="cursor:pointer;">
-    <input type="file" accept=".json" id="importFile" style="display:none" disabled>
-    <span id="importLabel" style="padding:6px 12px;background:#475569;border-radius:8px;font-size:14px;opacity:0.4;cursor:not-allowed;">导入备份</span>
-  </label>
-  <button type="button" id="fullScreenBtn">大屏模式</button>
+<div class="login-box">
+<input id="username" placeholder="账号">
+<input id="password" type="password" placeholder="密码">
+<button id="loginBtn">登录</button>
+<span id="roleText">未登录</span>
+<button id="logoutBtn" style="display:none;">登出</button>
 </div>
 
-<button id="exitFullScreenBtn">✕ 退出大屏</button>
+<div class="panel">
+<h2>🔧 Maintenance</h2>
+<table id="maintainTable">
+<thead>
+<tr>
+<th>项目</th>
+<th>工序</th>
+<th>责任人</th>
+<th>周期值</th>
+<th>周期单位</th>
+<th>上次时间</th>
+<th>下次时间</th>
+<th>备注</th>
+<th>状态</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<button id="addMaintainBtn" disabled>＋ 新增一行</button>
+</div>
 
-<div class="container">
-  <div class="panel">
-    <h2 style="margin-top:0;">🔧 Maintenance</h2>
-    <table id="maintainTable">
-      <thead>
-        <tr>
-          <th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
-          <th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <button type="button" id="addMaintainBtn" disabled>＋ 新增一行</button>
-  </div>
-
-  <div class="panel">
-    <h2 style="margin-top:0;">🔍 Inspection</h2>
-    <table id="inspectTable">
-      <thead>
-        <tr>
-          <th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>周期单位</th>
-          <th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <button type="button" id="addInspectBtn" disabled>＋ 新增一行</button>
-  </div>
+<div class="panel">
+<h2>🔍 Inspection</h2>
+<table id="inspectTable">
+<thead>
+<tr>
+<th>项目</th>
+<th>工序</th>
+<th>责任人</th>
+<th>周期值</th>
+<th>周期单位</th>
+<th>上次时间</th>
+<th>下次时间</th>
+<th>备注</th>
+<th>状态</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+<button id="addInspectBtn" disabled>＋ 新增一行</button>
 </div>
 
 <script>
-// ═════════════════ V41 CONFIG ═════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzj1Xvtof3AqoB6K2YYZJWSaTuvK3jgiRLs3lKdFGGP3ZhUvVdlltRg26a9fv4Au7Exbg/exec';
-const SHEET_ID   = '1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
-const SHEET_MAP  = { maintainTable: 'Maintenance', inspectTable: 'Inspection' };
-const COL_COUNT  = 10;
-let currentRole = sessionStorage.getItem('currentRole') || null;
-let isFullScreen = false;
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbzj1Xvtof3AqoB6K2YYZJWSaTuvK3jgiRLs3lKdFGGP3ZhUvVdlltRg26a9fv4Au7Exbg/exec';
 
-// ═════════════════ UTILS ═════════════════
-function showToast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
-function debounce(fn, delay=600){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a),delay); }; }
-function generateUUID(){ return (crypto.randomUUID)? crypto.randomUUID(): 'id-'+Date.now().toString(36)+Math.random().toString(36).substr(2,9); }
-function formatDateForInput(v){ if(!v) return ''; const d=new Date(v); if(isNaN(d.getTime())) return ''; d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+const SHEET_MAP={
+maintainTable:'Maintenance',
+inspectTable:'Inspection'
+};
 
-// ═════════════════ FETCH ═════════════════
+let currentRole=sessionStorage.getItem('currentRole')||null;
+
+function showToast(msg){
+const t=document.createElement('div');
+t.className='toast';
+t.textContent=msg;
+document.body.appendChild(t);
+setTimeout(()=>t.remove(),2000);
+}
+
+function generateUUID(){
+return 'id-'+Date.now().toString(36)+Math.random().toString(36).substr(2,9);
+}
+
 async function sendToSheet(action,sheet,id,values){
-  try{
-    const body={ action, sheet };
-    if(id) body.id=id;
-    if(values) body.values=values;
+try{
+const body={action,sheet};
+if(id) body.id=id;
+if(values) body.values=values;
 
-    const res = await fetch(SCRIPT_URL,{
-      method:'POST',
-      headers:{
-        'Content-Type':'text/plain;charset=utf-8'
-      },
-      body:JSON.stringify(body)
-    });
+const res=await fetch(SCRIPT_URL,{
+method:'POST',
+headers:{'Content-Type':'text/plain;charset=utf-8'},
+body:JSON.stringify(body)
+});
 
-    const text = await res.text();
-    return JSON.parse(text);
+const text=await res.text();
+return JSON.parse(text);
 
-  }catch(e){
-    console.error('请求失败:',e);
-    return { success:false,error:e.message };
-  }
+}catch(e){
+console.error(e);
+return {success:false};
+}
 }
 
-// ═════════════════ AUTH ═════════════════
 async function login(){
-  const u=document.getElementById('username').value.trim();
-  const p=document.getElementById('password').value.trim();
-  if(!u||!p){ showToast('请输入账号和密码'); return; }
-  const result=await sendToSheet('login',null,null,{username:u,password:p});
-  if(result.success&&result.role){
-    sessionStorage.setItem('currentRole',result.role);
-    currentRole=result.role;
-    document.getElementById('roleText').innerText=`已登录: ${currentRole}`;
-    document.getElementById('logoutBtn').style.display='inline-block';
-    applyPermission();
-    showToast(`登录成功 ✔ (${currentRole})`);
-  } else showToast('登录失败 ❌ '+(result.error||'未知错误'));
-}
-function logout(){ currentRole=null; sessionStorage.removeItem('currentRole'); document.getElementById('roleText').innerText='未登录'; document.getElementById('logoutBtn').style.display='none'; applyPermission(); showToast('已登出'); }
+const u=username.value.trim();
+const p=password.value.trim();
 
-// ═════════════════ PERMISSION ═════════════════
+if(u==='admin'&&p==='123456'){
+currentRole='admin';
+sessionStorage.setItem('currentRole','admin');
+}
+else if(u==='guest'&&p==='guest'){
+currentRole='guest';
+sessionStorage.setItem('currentRole','guest');
+}
+else{
+showToast('登录失败');
+return;
+}
+
+roleText.innerText='已登录:'+currentRole;
+logoutBtn.style.display='inline-block';
+
+applyPermission();
+loadAllData();
+showToast('登录成功');
+}
+
+function logout(){
+currentRole=null;
+sessionStorage.removeItem('currentRole');
+roleText.innerText='未登录';
+logoutBtn.style.display='none';
+applyPermission();
+}
+
 function applyPermission(){
-  const isAdmin=currentRole==='admin';
-  document.getElementById('exportBtn').disabled=!isAdmin;
-  document.getElementById('importFile').disabled=!isAdmin;
-  document.getElementById('addMaintainBtn').disabled=!isAdmin;
-  document.getElementById('addInspectBtn').disabled=!isAdmin;
-  const importLabel=document.getElementById('importLabel');
-  importLabel.style.opacity=isAdmin?'1':'0.4';
-  importLabel.style.cursor=isAdmin?'pointer':'not-allowed';
-  importLabel.style.background=isAdmin?'#38bdf8':'#475569';
+const isAdmin=currentRole==='admin';
+
+addMaintainBtn.disabled=!isAdmin;
+addInspectBtn.disabled=!isAdmin;
+
+document.querySelectorAll('td').forEach(td=>{
+td.contentEditable=isAdmin;
+});
+
+document.querySelectorAll('button.del').forEach(btn=>{
+btn.disabled=!isAdmin;
+});
 }
 
-// ═════════════════ EVENT BINDING ═════════════════
-document.getElementById('loginBtn').addEventListener('click', login);
-document.getElementById('logoutBtn').addEventListener('click', logout);
+async function loadAllData(){
+await loadTable('maintainTable');
+await loadTable('inspectTable');
+applyPermission();
+}
 
+async function loadTable(tableId){
+const result=await sendToSheet('load',SHEET_MAP[tableId]);
+
+if(!result.success||!result.data)return;
+
+const tbody=document.querySelector(`#${tableId} tbody`);
+tbody.innerHTML='';
+
+result.data.slice(1).forEach(row=>{
+createRow(tableId,row);
+});
+}
+
+function createRow(tableId,row=[]){
+const tbody=document.querySelector(`#${tableId} tbody`);
+const tr=document.createElement('tr');
+const id=row[9]||generateUUID();
+
+for(let i=0;i<9;i++){
+const td=document.createElement('td');
+td.contentEditable=currentRole==='admin';
+td.innerText=row[i]||'';
+td.onblur=()=>saveRow(tr,tableId,id);
+tr.appendChild(td);
+}
+
+const actionTd=document.createElement('td');
+
+const del=document.createElement('button');
+del.textContent='删除';
+del.className='del';
+del.disabled=currentRole!=='admin';
+del.onclick=()=>deleteRow(tr,tableId,id);
+
+actionTd.appendChild(del);
+tr.appendChild(actionTd);
+
+tbody.appendChild(tr);
+}
+
+async function addNewRow(tableId){
+const values=['','','','','','','','','',generateUUID()];
+const result=await sendToSheet('add',SHEET_MAP[tableId],null,values);
+
+if(result.success){
+createRow(tableId,values);
+showToast('新增成功');
+}
+}
+
+async function saveRow(tr,tableId,id){
+const values=[...tr.children].slice(0,9).map(td=>td.innerText.trim());
+values.push(id);
+
+const result=await sendToSheet('save',SHEET_MAP[tableId],id,values);
+
+if(result.success){
+showToast('保存成功');
+}
+}
+
+async function deleteRow(tr,tableId,id){
+const result=await sendToSheet('delete',SHEET_MAP[tableId],id);
+
+if(result.success){
+tr.remove();
+showToast('删除成功');
+}
+}
+
+loginBtn.onclick=login;
+logoutBtn.onclick=logout;
+
+addMaintainBtn.onclick=()=>addNewRow('maintainTable');
+addInspectBtn.onclick=()=>addNewRow('inspectTable');
+
+window.onload=()=>{
+applyPermission();
+loadAllData();
+};
 </script>
+
 </body>
 </html>
