@@ -95,7 +95,7 @@
 
 <script>
 // ═════════════════ V41 CONFIG ═════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1_Iphi2J3CSTA6ZQw1AII4SYhiht6P3TEQbqAX7YoqPkFV_uyPotf0RKyizwx4k2I/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-p9DlabLgnUxtygVnFxMOkzwZ9WPVVrdcp2KDgEpCb5f_gGm6EUIqCepxrGfm2yzc6w/exec';
 const SHEET_ID   = '1tPygLGl2Y4q6ykqxDsIuAD7ACkhTZMxbnTxyv-Dv-XY';
 const SHEET_MAP  = { maintainTable: 'Maintenance', inspectTable: 'Inspection' };
 const COL_COUNT  = 10;
@@ -111,10 +111,25 @@ function formatDateForInput(v){ if(!v) return ''; const d=new Date(v); if(isNaN(
 // ═════════════════ FETCH ═════════════════
 async function sendToSheet(action,sheet,id,values){
   try{
-    const body={ action, sheet }; if(id) body.id=id; if(values) body.values=values;
-    const res=await fetch(SCRIPT_URL,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-    return await res.json();
-  } catch(e){ console.error('请求失败:',e); return {success:false,error:'网络错误'}; }
+    const body={ action, sheet };
+    if(id) body.id=id;
+    if(values) body.values=values;
+
+    const res = await fetch(SCRIPT_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{
+        'Content-Type':'text/plain;charset=utf-8'
+      },
+      body:JSON.stringify(body)
+    });
+
+    return { success:true };
+
+  }catch(e){
+    console.error('请求失败:',e);
+    return { success:false,error:e.message };
+  }
 }
 
 // ═════════════════ AUTH ═════════════════
