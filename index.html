@@ -27,7 +27,7 @@ align-items:center;
 margin-bottom:20px;
 }
 .logo{
-height:152px;
+height:70px;
 }
 .header{
 font-size:28px;
@@ -236,7 +236,14 @@ const tds=tr.children;
 
 tds[6].innerText=formatDateOnly(row[6]);
 tds[7].innerText=row[7]||'';
-tds[8].innerText=row[8]||'';
+
+const status=row[8]||'';
+tds[8].innerText=status;
+
+tds[8].className=
+status==='正常' ? 'normal' :
+status==='警告' ? 'warning' :
+status==='超期' ? 'danger' : '';
 
 tr.addEventListener('input',()=>updateLinked(tr,tableId,id));
 tr.addEventListener('change',()=>updateLinked(tr,tableId,id));
@@ -302,7 +309,10 @@ tds[6].innerText=next;
 
 const status=calcStatus(next);
 tds[8].innerText=status;
-tds[8].className=status==='正常'?'normal':status==='警告'?'warning':'danger';
+tds[8].className=
+status==='正常' ? 'normal' :
+status==='警告' ? 'warning' :
+status==='超期' ? 'danger' : '';
 
 saveRow(tr,tableId,id);
 }
