@@ -170,9 +170,15 @@ return 'id-'+Date.now().toString(36)+Math.random().toString(36).substr(2,9);
 
 function formatDateOnly(date){
 if(!date) return '';
+
 const d=new Date(date);
 if(isNaN(d)) return '';
-return d.toISOString().split('T')[0];
+
+const y=d.getFullYear();
+const m=String(d.getMonth()+1).padStart(2,'0');
+const day=String(d.getDate()).padStart(2,'0');
+
+return `${y}-${m}-${day}`;
 }
 
 function calcNextDate(value,unit,lastDate){
@@ -228,7 +234,7 @@ addInspectBtn.disabled=!isAdmin;
 function restoreLinked(tr,tableId,id,row){
 const tds=tr.children;
 
-tds[6].innerText=row[6]||'';
+tds[6].innerText=formatDateOnly(row[6]);
 tds[7].innerText=row[7]||'';
 tds[8].innerText=row[8]||'';
 
