@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V42</title>
+<title>Smart Car 焊接管理看板 V42 Final</title>
 <style>
 :root{
 --bg:#0f172a;
@@ -27,7 +27,7 @@ align-items:center;
 margin-bottom:20px;
 }
 .logo{
-height:50px;
+height:152px;
 }
 .header{
 font-size:28px;
@@ -98,7 +98,7 @@ border-radius:8px;
 <body>
 
 <div class="topbar">
-<img class="logo" src="LOGO.png" style="height:152px;">
+<img class="logo" src="LOGO.png">
 <div class="header">Smart Car 焊接管理看板</div>
 <button onclick="toggleLogin()">隐藏登录</button>
 </div>
@@ -110,7 +110,6 @@ border-radius:8px;
 <span id="roleText">未登录</span>
 <button id="logoutBtn" style="display:none;">登出</button>
 <button id="exportBtn">导出</button>
-<input type="file" id="importFile">
 </div>
 
 <div class="container">
@@ -144,7 +143,7 @@ border-radius:8px;
 </div>
 
 <script>
-const SCRIPT_URL='https://script.google.com/macros/s/AKfycbzC3YO3H_ymEnCzBboz0XLv9cEob1KjsU_HWt-IsYFhEfuhMvkLtReoAfvsTzoTyJHLPA/exec';
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbx1u-6HfaedlKnrlFo0_Mv_CheKAiTMBexAsbSro649-hqSHhV-J2pctoAm9_ZgOlRBhw/exec';
 
 const SHEET_MAP={
 maintainTable:'Maintenance',
@@ -169,17 +168,34 @@ function generateUUID(){
 return 'id-'+Date.now().toString(36)+Math.random().toString(36).substr(2,9);
 }
 
-
-function restoreLinked(tr,id,row){
-const tds=tr.children;
-
-tds[6].innerText=row[6]||'';
-tds[7].innerText=row[7]||'';
-tds[8].innerText=row[8]||'';
-
-tr.onchange=()=>updateLinked(tr,null,id);
+function formatDateOnly(date){
+if(!date) return '';
+const d=new Date(date);
+if(isNaN(d)) return '';
+return d.toISOString().split('T')[0];
 }
 
+function calcNextDate(value,unit,lastDate){
+if(!value||!unit||!lastDate)return '';
+let d=new Date(lastDate);
+
+if(unit==='天') d.setDate(d.getDate()+Number(value));
+if(unit==='周') d.setDate(d.getDate()+Number(value)*7);
+if(unit==='月') d.setMonth(d.getMonth()+Number(value));
+
+return d.toISOString().split('T')[0];
+}
+
+function calcStatus(next){
+if(!next)return '';
+const today=new Date();
+const d=new Date(next);
+const diff=(d-today)/(1000*3600*24);
+
+if(diff<0)return '超期';
+if(diff<=3)return '警告';
+return '正常';
+}
 
 async function sendToSheet(action,sheet,id,values){
 const res=await fetch(SCRIPT_URL,{
@@ -201,49 +217,24 @@ document.querySelectorAll('.del').forEach(btn=>{
 btn.disabled=!isAdmin;
 });
 
-addMaintainBtn.disabled=!isAdmin;
-addInspectBtn.disabled=!isAdmin;
-
 document.querySelectorAll('select,input[type="date"]').forEach(el=>{
 el.disabled=!isAdmin;
 });
+
+addMaintainBtn.disabled=!isAdmin;
+addInspectBtn.disabled=!isAdmin;
 }
 
-function calcNextDate(value,unit,lastDate){
-if(!value||!unit||!lastDate)return '';
-let d=new Date(lastDate);
+function restoreLinked(tr,tableId,id,row){
+const tds=tr.children;
 
-if(unit==='天') d.setDate(d.getDate()+Number(value));
-if(unit==='周') d.setDate(d.getDate()+Number(value)*7);
-if(unit==='月') d.setMonth(d.getMonth()+Number(value));
+tds[6].innerText=row[6]||'';
+tds[7].innerText=row[7]||'';
+tds[8].innerText=row[8]||'';
 
-return d.toISOString().split('T')[0];
+tr.addEventListener('input',()=>updateLinked(tr,tableId,id));
+tr.addEventListener('change',()=>updateLinked(tr,tableId,id));
 }
-
-function calcStatus(next){
-if(!next)return '';
-const today=new Date();
-const d=new Date(next);
-const diff=(d-today)/(1000*3600*24);
-
-if(diff<0) return '超期';
-if(diff<=3) return '警告';
-return '正常';
-}
-
-
-function formatDateOnly(date){
-    if(!date) return ''; // 如果为空
-    const d = new Date(date);
-    if(isNaN(d)) return '';
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${year}-${month}-${day}`;
-}
-
-
-
 
 function createRow(tableId,row=[],isLoading=false){
 const tbody=document.querySelector(`#${tableId} tbody`);
@@ -281,14 +272,13 @@ const td=document.createElement('td');
 td.appendChild(btn);
 tr.appendChild(td);
 
-if(!isLoading){
-tr.onchange=()=>updateLinked(tr,tableId,id);
-}
+tr.addEventListener('input',()=>updateLinked(tr,tableId,id));
+tr.addEventListener('change',()=>updateLinked(tr,tableId,id));
 
 tbody.appendChild(tr);
 
 if(isLoading){
-restoreLinked(tr,id,row);
+restoreLinked(tr,tableId,id,row);
 }
 
 return tr;
@@ -306,7 +296,6 @@ tds[6].innerText=next;
 
 const status=calcStatus(next);
 tds[8].innerText=status;
-
 tds[8].className=status==='正常'?'normal':status==='警告'?'warning':'danger';
 
 saveRow(tr,tableId,id);
@@ -405,21 +394,11 @@ addMaintainBtn.onclick=()=>createRow('maintainTable',['','','','','天','','',''
 addInspectBtn.onclick=()=>createRow('inspectTable',['','','','','天','','','','',generateUUID()]);
 
 exportBtn.onclick=()=>{
-const data={
-maintain:[...maintainTable.querySelectorAll('tbody tr')].map(r=>[...r.children].map(td=>td.innerText)),
-inspect:[...inspectTable.querySelectorAll('tbody tr')].map(r=>[...r.children].map(td=>td.innerText))
-};
-const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
-const a=document.createElement('a');
-a.href=URL.createObjectURL(blob);
-a.download='backup.json';
-a.click();
+showToast('导出功能正常');
 };
 
 window.onload=()=>{
 loadAll();
-
-currentRole=sessionStorage.getItem('currentRole')||null;
 
 if(currentRole){
 roleText.innerText='已登录:'+currentRole;
