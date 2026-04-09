@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 焊接管理看板 V45</title>
+<title>Smart Car 工艺管理看板 V45</title>
 
 <style>
 :root{
@@ -127,7 +127,7 @@ table{font-size:12px;}
 
 <div class="topbar">
 <img class="logo" src="LOGO.png">
-<div class="header">Smart Car 焊接管理看板</div>
+<div class="header">Smart Car 工艺管理看板</div>
 <button onclick="toggleLogin()">隐藏登录</button>
 </div>
 
@@ -148,13 +148,21 @@ table{font-size:12px;}
 <table id="maintainTable">
 <thead>
 <tr>
-<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>单位</th>
-<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
+<th>项目 (Project)</th>
+<th>工序 (Process)</th>
+<th>责任人 (Owner)</th>
+<th>周期值 (Cycle)</th>
+<th>单位 (Unit)</th>
+<th>上次时间 (Last Date)</th>
+<th>下次时间 (Next Date)</th>
+<th>备注 (Remark)</th>
+<th>状态 (Status)</th>
+<th>操作 (Action)</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
-<button id="addMaintainBtn">新增</button>
+<button id="addMaintainBtn">新增 New</button>
 </div>
 
 <div class="panel">
@@ -162,13 +170,21 @@ table{font-size:12px;}
 <table id="inspectTable">
 <thead>
 <tr>
-<th>项目</th><th>工序</th><th>责任人</th><th>周期值</th><th>单位</th>
-<th>上次时间</th><th>下次时间</th><th>备注</th><th>状态</th><th>操作</th>
+<th>项目 (Project)</th>
+<th>工序 (Process)</th>
+<th>责任人 (Owner)</th>
+<th>周期值 (Cycle)</th>
+<th>单位 (Unit)</th>
+<th>上次时间 (Last Date)</th>
+<th>下次时间 (Next Date)</th>
+<th>备注 (Remark)</th>
+<th>状态 (Status)</th>
+<th>操作 (Action)</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
-<button id="addInspectBtn">新增</button>
+<button id="addInspectBtn">新增 New</button>
 </div>
 
 </div>
@@ -203,9 +219,9 @@ function calcNextDate(value,unit,lastDate){
 if(!value||!unit||!lastDate)return '';
 let d=new Date(lastDate);
 
-if(unit==='天')d.setDate(d.getDate()+Number(value));
-if(unit==='周')d.setDate(d.getDate()+Number(value)*7);
-if(unit==='月')d.setMonth(d.getMonth()+Number(value));
+if(unit==='天 Day')d.setDate(d.getDate()+Number(value));
+if(unit==='周 Week')d.setDate(d.getDate()+Number(value)*7);
+if(unit==='月 Month')d.setMonth(d.getMonth()+Number(value));
 
 return formatDateOnly(d);
 }
@@ -221,26 +237,26 @@ d.setHours(0,0,0,0);
 
 const diff=(d-today)/(1000*3600*24);
 
-if(diff<0)return '超期';
-if(diff===0)return '今日到期';
-if(diff<=3)return '警告';
-return '正常';
+if(diff<0)return '超期 Overdue';
+if(diff===0)return '今日到期 Today';
+if(diff<=3)return '警告 Warning';
+return '正常 Normal';
 }
 
 function getPriority(status){
-if(status==='超期')return 1;
-if(status==='今日到期')return 2;
-if(status==='警告')return 3;
-if(status==='正常')return 4;
+if(status==='超期 Overdue')return 1;
+if(status==='今日到期 Today')return 2;
+if(status==='警告 Warning')return 3;
+if(status==='正常 Normal')return 4;
 return 5;
 }
 
 function applyStatus(td,status){
 td.className=
-status==='正常'?'normal':
-status==='警告'?'warning':
-status==='超期'?'danger':
-status==='今日到期'?'today':'';
+status==='正常 Normal'?'normal':
+status==='警告 Warning'?'warning':
+status==='超期 Overdue'?'danger':
+status==='今日到期 Today'?'today':'';
 }
 
 function sortTable(tableId){
@@ -283,7 +299,7 @@ for(let i=0;i<9;i++){
 const td=document.createElement('td');
 
 if(i===4){
-td.innerHTML=`<select><option>天</option><option>周</option><option>月</option></select>`;
+td.innerHTML=`<select><option>天 Day</option><option>周 Week</option><option>月 Month</option></select>`;
 if(row[i])td.firstChild.value=row[i];
 }
 else if(i===5){
@@ -298,7 +314,7 @@ tr.appendChild(td);
 }
 
 const btn=document.createElement('button');
-btn.textContent='删除';
+btn.textContent='删除 Delete';
 btn.onclick=()=>deleteRow(tr,tableId,id);
 
 const td=document.createElement('td');
