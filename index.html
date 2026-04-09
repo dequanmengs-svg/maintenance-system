@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Car 保养点检管理看板 V42 Final</title>
+<title>Smart Car 焊接管理看板 V45</title>
+
 <style>
 :root{
 --bg:#0f172a;
@@ -13,6 +14,7 @@
 --accent:#38bdf8;
 --text:#f1f5f9;
 }
+
 body{
 margin:0;
 padding:20px;
@@ -20,19 +22,24 @@ font-family:Arial;
 background:var(--bg);
 color:var(--text);
 }
+
 .topbar{
 display:flex;
 justify-content:space-between;
 align-items:center;
 margin-bottom:20px;
+flex-wrap:wrap;
 }
+
 .logo{
 height:70px;
 }
+
 .header{
 font-size:28px;
 font-weight:bold;
 }
+
 .login-box{
 display:flex;
 gap:8px;
@@ -40,11 +47,13 @@ justify-content:center;
 margin-bottom:20px;
 flex-wrap:wrap;
 }
+
 .container{
 display:flex;
 gap:20px;
 flex-wrap:wrap;
 }
+
 .panel{
 flex:1;
 min-width:48%;
@@ -52,38 +61,51 @@ background:var(--panel);
 padding:20px;
 border-radius:12px;
 overflow:auto;
+max-height:80vh;
 }
+
 table{
 width:100%;
 border-collapse:collapse;
 table-layout:fixed;
 }
+
+thead th{
+position:sticky;
+top:0;
+background:var(--header);
+z-index:10;
+}
+
 th,td{
 border:1px solid var(--border);
 padding:8px;
 text-align:center;
 word-break:break-word;
 }
-th{
-background:var(--header);
-}
+
 input,select,button{
 padding:6px;
 border:none;
 border-radius:6px;
 }
+
 button{
 background:var(--accent);
 cursor:pointer;
 font-weight:bold;
 }
+
 button:disabled{
 opacity:0.4;
 cursor:not-allowed;
 }
+
 .normal{background:#16a34a;}
 .warning{background:#eab308;color:black;}
 .danger{background:#dc2626;}
+.today{background:#2563eb;}
+
 .toast{
 position:fixed;
 bottom:20px;
@@ -93,13 +115,19 @@ color:white;
 padding:10px 20px;
 border-radius:8px;
 }
+
+@media(max-width:768px){
+.container{flex-direction:column;}
+.panel{min-width:100%;}
+table{font-size:12px;}
+}
 </style>
 </head>
 <body>
 
 <div class="topbar">
 <img class="logo" src="LOGO.png">
-<div class="header">Smart Car 保养点检管理看板</div>
+<div class="header">Smart Car 焊接管理看板</div>
 <button onclick="toggleLogin()">隐藏登录</button>
 </div>
 
@@ -110,9 +138,11 @@ border-radius:8px;
 <span id="roleText">未登录</span>
 <button id="logoutBtn" style="display:none;">登出</button>
 <button id="exportBtn">导出</button>
+<input type="file" id="importFile">
 </div>
 
 <div class="container">
+
 <div class="panel">
 <h2>Maintenance</h2>
 <table id="maintainTable">
@@ -140,6 +170,7 @@ border-radius:8px;
 </table>
 <button id="addInspectBtn">新增</button>
 </div>
+
 </div>
 
 <script>
@@ -151,17 +182,10 @@ inspectTable:'Inspection'
 };
 
 let currentRole=sessionStorage.getItem('currentRole')||null;
+const saveLock={};
 
 function toggleLogin(){
 loginBox.style.display=loginBox.style.display==='none'?'flex':'none';
-}
-
-function showToast(msg){
-const t=document.createElement('div');
-t.className='toast';
-t.textContent=msg;
-document.body.appendChild(t);
-setTimeout(()=>t.remove(),2000);
 }
 
 function generateUUID(){
@@ -169,38 +193,67 @@ return 'id-'+Date.now().toString(36)+Math.random().toString(36).substr(2,9);
 }
 
 function formatDateOnly(date){
-if(!date) return '';
-
+if(!date)return '';
 const d=new Date(date);
-if(isNaN(d)) return '';
-
-const y=d.getFullYear();
-const m=String(d.getMonth()+1).padStart(2,'0');
-const day=String(d.getDate()).padStart(2,'0');
-
-return `${y}-${m}-${day}`;
+if(isNaN(d))return '';
+return d.toISOString().split('T')[0];
 }
 
 function calcNextDate(value,unit,lastDate){
 if(!value||!unit||!lastDate)return '';
 let d=new Date(lastDate);
 
-if(unit==='天') d.setDate(d.getDate()+Number(value));
-if(unit==='周') d.setDate(d.getDate()+Number(value)*7);
-if(unit==='月') d.setMonth(d.getMonth()+Number(value));
+if(unit==='天')d.setDate(d.getDate()+Number(value));
+if(unit==='周')d.setDate(d.getDate()+Number(value)*7);
+if(unit==='月')d.setMonth(d.getMonth()+Number(value));
 
-return d.toISOString().split('T')[0];
+return formatDateOnly(d);
 }
 
 function calcStatus(next){
 if(!next)return '';
+
 const today=new Date();
+today.setHours(0,0,0,0);
+
 const d=new Date(next);
+d.setHours(0,0,0,0);
+
 const diff=(d-today)/(1000*3600*24);
 
 if(diff<0)return '超期';
+if(diff===0)return '今日到期';
 if(diff<=3)return '警告';
 return '正常';
+}
+
+function getPriority(status){
+if(status==='超期')return 1;
+if(status==='今日到期')return 2;
+if(status==='警告')return 3;
+if(status==='正常')return 4;
+return 5;
+}
+
+function applyStatus(td,status){
+td.className=
+status==='正常'?'normal':
+status==='警告'?'warning':
+status==='超期'?'danger':
+status==='今日到期'?'today':'';
+}
+
+function sortTable(tableId){
+const tbody=document.querySelector(`#${tableId} tbody`);
+const rows=[...tbody.querySelectorAll('tr')];
+
+rows.sort((a,b)=>{
+const sa=a.children[8].innerText;
+const sb=b.children[8].innerText;
+return getPriority(sa)-getPriority(sb);
+});
+
+rows.forEach(r=>tbody.appendChild(r));
 }
 
 async function sendToSheet(action,sheet,id,values){
@@ -212,41 +265,13 @@ body:JSON.stringify({action,sheet,id,values})
 return JSON.parse(await res.text());
 }
 
-function applyPermission(){
-const isAdmin=currentRole==='admin';
-
-document.querySelectorAll('[contenteditable]').forEach(td=>{
-td.contentEditable=isAdmin;
-});
-
-document.querySelectorAll('.del').forEach(btn=>{
-btn.disabled=!isAdmin;
-});
-
-document.querySelectorAll('select,input[type="date"]').forEach(el=>{
-el.disabled=!isAdmin;
-});
-
-addMaintainBtn.disabled=!isAdmin;
-addInspectBtn.disabled=!isAdmin;
-}
-
-function restoreLinked(tr,tableId,id,row){
+function restoreLinked(tr,row){
 const tds=tr.children;
-
 tds[6].innerText=formatDateOnly(row[6]);
-tds[7].innerText=row[7]||'';
 
-const status=row[8]||'';
+const status=calcStatus(tds[6].innerText);
 tds[8].innerText=status;
-
-tds[8].className=
-status==='正常' ? 'normal' :
-status==='警告' ? 'warning' :
-status==='超期' ? 'danger' : '';
-
-tr.addEventListener('input',()=>updateLinked(tr,tableId,id));
-tr.addEventListener('change',()=>updateLinked(tr,tableId,id));
+applyStatus(tds[8],status);
 }
 
 function createRow(tableId,row=[],isLoading=false){
@@ -258,12 +283,8 @@ for(let i=0;i<9;i++){
 const td=document.createElement('td');
 
 if(i===4){
-td.innerHTML=`<select>
-<option>天</option>
-<option>周</option>
-<option>月</option>
-</select>`;
-if(row[i]) td.firstChild.value=row[i];
+td.innerHTML=`<select><option>天</option><option>周</option><option>月</option></select>`;
+if(row[i])td.firstChild.value=row[i];
 }
 else if(i===5){
 td.innerHTML=`<input type="date" value="${formatDateOnly(row[i])}">`;
@@ -278,7 +299,6 @@ tr.appendChild(td);
 
 const btn=document.createElement('button');
 btn.textContent='删除';
-btn.className='del';
 btn.onclick=()=>deleteRow(tr,tableId,id);
 
 const td=document.createElement('td');
@@ -290,9 +310,7 @@ tr.addEventListener('change',()=>updateLinked(tr,tableId,id));
 
 tbody.appendChild(tr);
 
-if(isLoading){
-restoreLinked(tr,tableId,id,row);
-}
+if(isLoading) restoreLinked(tr,row);
 
 return tr;
 }
@@ -309,53 +327,46 @@ tds[6].innerText=next;
 
 const status=calcStatus(next);
 tds[8].innerText=status;
-tds[8].className=
-status==='正常' ? 'normal' :
-status==='警告' ? 'warning' :
-status==='超期' ? 'danger' : '';
+applyStatus(tds[8],status);
 
 saveRow(tr,tableId,id);
+sortTable(tableId);
 }
 
 async function saveRow(tr,tableId,id){
-if(currentRole!=='admin') return;
+if(currentRole!=='admin')return;
+if(saveLock[id])return;
+
+saveLock[id]=true;
 
 const tds=tr.children;
 
 const values=[
-tds[0].innerText,
-tds[1].innerText,
-tds[2].innerText,
-tds[3].innerText,
+tds[0].innerText.trim(),
+tds[1].innerText.trim(),
+tds[2].innerText.trim(),
+tds[3].innerText.trim(),
 tds[4].querySelector('select').value,
 tds[5].querySelector('input').value,
-tds[6].innerText,
-tds[7].innerText,
-tds[8].innerText,
+tds[6].innerText.trim(),
+tds[7].innerText.trim(),
+tds[8].innerText.trim(),
 id
 ];
 
 await sendToSheet('save',SHEET_MAP[tableId],id,values);
+
+setTimeout(()=>saveLock[id]=false,500);
 }
 
 async function deleteRow(tr,tableId,id){
-if(currentRole!=='admin'){
-showToast('无权限');
-return;
-}
-
 const result=await sendToSheet('delete',SHEET_MAP[tableId],id);
-
-if(result.success){
-tr.remove();
-showToast('删除成功');
-}
+if(result.success) tr.remove();
 }
 
 async function loadTable(tableId){
 const result=await sendToSheet('load',SHEET_MAP[tableId]);
-
-if(!result.success||!result.data)return;
+if(!result.success)return;
 
 const tbody=document.querySelector(`#${tableId} tbody`);
 tbody.innerHTML='';
@@ -364,7 +375,7 @@ result.data.slice(1).forEach(row=>{
 createRow(tableId,row,true);
 });
 
-applyPermission();
+sortTable(tableId);
 }
 
 function loadAll(){
@@ -376,53 +387,34 @@ loginBtn.onclick=()=>{
 const u=username.value.trim();
 const p=password.value.trim();
 
-if(u==='admin'&&p==='123456'){
-currentRole='admin';
-sessionStorage.setItem('currentRole','admin');
-}
-else if(u==='guest'&&p==='123'){
-currentRole='guest';
-sessionStorage.setItem('currentRole','guest');
-}
-else{
-showToast('登录失败');
-return;
-}
+if(u==='admin'&&p==='123456') currentRole='admin';
+else if(u==='guest'&&p==='123') currentRole='guest';
+else return;
+
+sessionStorage.setItem('currentRole',currentRole);
 
 roleText.innerText='已登录:'+currentRole;
 logoutBtn.style.display='inline-block';
-
-applyPermission();
-loadAll();
-
-showToast('登录成功');
-};
+}
 
 logoutBtn.onclick=()=>{
 currentRole=null;
 sessionStorage.removeItem('currentRole');
 roleText.innerText='未登录';
 logoutBtn.style.display='none';
-applyPermission();
-};
+}
 
-addMaintainBtn.onclick=()=>createRow('maintainTable',['','','','','天','','','','',generateUUID()]);
-addInspectBtn.onclick=()=>createRow('inspectTable',['','','','','天','','','','',generateUUID()]);
-
-exportBtn.onclick=()=>{
-showToast('导出功能正常');
-};
+addMaintainBtn.onclick=()=>createRow('maintainTable');
+addInspectBtn.onclick=()=>createRow('inspectTable');
 
 window.onload=()=>{
-loadAll();
-
 if(currentRole){
 roleText.innerText='已登录:'+currentRole;
 logoutBtn.style.display='inline-block';
 }
-
-applyPermission();
-};
+loadAll();
+setInterval(loadAll,86400000);
+}
 </script>
 
 </body>
